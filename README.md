@@ -1,4 +1,4 @@
-# ASSOILHOME 赦免之家
+# ASSOILHOME
 
 > *every feeling deserves a frame*
 
@@ -77,19 +77,11 @@
 
 ## 注意事项
 
-- **需通过 HTTP 服务访问**，直接双击打开 `index.html`（`file://` 协议）会导致字体加载失败和 LocalStorage 异常。本地调试请使用：
-  ```bash
-  python -m http.server 8765
-  ```
-  然后访问 `http://localhost:8765`
-
 - **归档数据存储在浏览器本地**（LocalStorage），清除浏览器数据后归档将丢失，建议重要作品及时下载保存
 
 - **视频录制**依赖 `MediaRecorder` API，部分旧版浏览器可能不支持；推荐使用 Chrome / Edge 最新版
 
 - **钟摆效果**路径长度会影响生成质量，建议拖出至少覆盖画面 1/3 的路径再松开
-
-- **字形效果**依赖 opentype.js 解析本地字体文件，首次加载需数秒，请稍候
 
 ---
 
