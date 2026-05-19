@@ -189,15 +189,26 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .gallery-footer { padding:1.4rem 3rem; border-top:1px solid var(--line); display:flex; gap:1.5rem; }
 
 /* 音乐播放器 */
-#music-player { position:fixed; top:1.25rem; left:3rem; z-index:1000; display:flex; align-items:center; gap:0.5rem; }
-#music-btn { background:none; border:none; cursor:pointer; font-family:var(--serif-en); font-size:1rem; color:var(--ink); opacity:0.22; transition:opacity 0.25s; padding:0 0.2rem; line-height:1; user-select:none; }
-#music-btn:hover { opacity:0.6; }
-#music-btn.playing { opacity:0.38; }
-#music-menu { position:absolute; top:1.8rem; left:0; background:var(--bg); border:1px solid var(--line); display:none; flex-direction:column; min-width:88px; box-shadow:0 4px 16px rgba(10,10,10,0.08); }
+@keyframes spin-disc { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+#music-player { position:fixed; z-index:1000; display:flex; align-items:center; pointer-events:none; }
+#music-btn {
+  pointer-events:all;
+  background:none; border:1px solid currentColor; border-radius:50%;
+  cursor:pointer; color:var(--ink); opacity:0.2;
+  width:1.35em; height:1.35em;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--serif-en); font-size:0.85rem; line-height:1;
+  transition:opacity 0.25s; padding:0; user-select:none;
+  flex-shrink:0;
+}
+#music-btn:hover { opacity:0.55; }
+#music-btn.playing { opacity:0.32; }
+#music-btn.spinning { animation:spin-disc 4s linear infinite; }
+#music-menu { position:absolute; top:calc(50% + 1.1rem); left:0; background:var(--bg); border:1px solid var(--line); display:none; flex-direction:column; min-width:88px; box-shadow:0 4px 16px rgba(10,10,10,0.08); pointer-events:all; }
 #music-player.open #music-menu { display:flex; }
 .music-opt { background:none; border:none; padding:0.55rem 1rem; font-family:var(--serif-zh); font-size:0.72rem; color:var(--ink); opacity:0.42; cursor:pointer; text-align:left; transition:opacity 0.15s; white-space:nowrap; }
 .music-opt:hover { opacity:0.85; }
-.music-opt.active { opacity:1; letter-spacing:0.04em; }
+.music-opt.active { opacity:1; }
 .music-opt.active::before { content:'♪ '; font-family:var(--serif-en); }
 
 @media(max-width:768px){
@@ -212,7 +223,7 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 <body>
 
 <!-- 背景音乐 -->
-<audio id="bg-audio" loop preload="none"></audio>
+<audio id="bg-audio" loop preload="auto"></audio>
 <div id="music-player">
   <button id="music-btn" title="背景音乐">♩</button>
   <div id="music-menu">
@@ -496,32 +507,54 @@ document.getElementById('btn-gallery-home').addEventListener('click',()=>{ playC
     audio.volume=0;
     audio.play().catch(()=>{});
     let v=0;
-    const t=setInterval(()=>{ v=Math.min(v+0.018,0.32); audio.volume=v; if(v>=0.32) clearInterval(t); },80);
-    btn.classList.add('playing');
+    const t=setInterval(()=>{ v=Math.min(v+0.015,0.30); audio.volume=v; if(v>=0.30) clearInterval(t); },80);
+    btn.classList.add('playing','spinning');
   }
 
-  function startMusic(){
+  function start(){
     if(started) return;
     started=true;
     audio.src=document.querySelector('.music-opt.active').dataset.src;
     fadeIn();
   }
 
-  // 进入 & 我的归档 都触发播放
-  document.getElementById('btn-enter').addEventListener('click',startMusic,{once:true});
-  document.getElementById('btn-gallery-home').addEventListener('click',startMusic,{once:true});
+  // 尝试自动播放；浏览器拦截时等待首次交互
+  audio.src=document.querySelector('.music-opt.active').dataset.src;
+  audio.volume=0;
+  audio.play().then(()=>{
+    started=true;
+    let v=0;
+    const t=setInterval(()=>{ v=Math.min(v+0.015,0.30); audio.volume=v; if(v>=0.30) clearInterval(t); },80);
+    btn.classList.add('playing','spinning');
+  }).catch(()=>{
+    // 等待任意首次点击触发
+    document.addEventListener('click',function once(){ document.removeEventListener('click',once); start(); },{once:true});
+  });
 
-  // 点击音符：展开/收起菜单
+  // 将音乐按钮贴紧当前页面 logo 右侧
+  function snapToLogo(){
+    const logo=document.querySelector('.page.active .logo');
+    if(!logo) return;
+    const r=logo.getBoundingClientRect();
+    player.style.top=(r.top + r.height/2 - btn.offsetHeight/2)+'px';
+    player.style.left=(r.right+10)+'px';
+  }
+  snapToLogo();
+  new MutationObserver(snapToLogo).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']});
+  window.addEventListener('resize',snapToLogo);
+
+  // 音符按钮：展开/收起菜单
   btn.addEventListener('click',e=>{
     e.stopPropagation();
     player.classList.toggle('open');
   });
   document.addEventListener('click',()=>player.classList.remove('open'));
 
-  // 切换版本
+  // 切换版本（保持进度）
   opts.forEach(opt=>{
     opt.addEventListener('click',e=>{
       e.stopPropagation();
+      if(opt.classList.contains('active')){ player.classList.remove('open'); return; }
       opts.forEach(o=>o.classList.remove('active'));
       opt.classList.add('active');
       if(!started){ player.classList.remove('open'); return; }
