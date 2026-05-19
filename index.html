@@ -1130,17 +1130,12 @@ document.getElementById('btn-clear-gallery').addEventListener('click',()=>{ if(c
 
 // ── 文字池 ────────────────────────────────
 function buildTextPool(){
-  let pool=[];
   const base=state.userText.trim();
-  if(base.length>0){
-    const chars=[...base], words=base.split(/[\s，。！？、,.!?]+/).filter(w=>w.length>0);
-    pool.push(...chars,...chars,...words,...words,...words);
-  }
-  const group=state.emotionGroup||'anger';
-  const trans=TRANSLATIONS[group]||TRANSLATIONS.anger;
-  const tags=state.emotionTags.length>0?state.emotionTags:(EMOTIONS[group]||[]);
-  while(pool.length<400) pool.push(...trans,...tags);
-  return pool;
+  if(base.length===0) return ['·'];
+  const chars=[...base];
+  const words=base.split(/[\s，。！？、,.!?]+/).filter(w=>w.length>0);
+  // 字符优先，词语穿插，不用情绪词填充——不足时由效果层自行循环
+  return [...chars,...chars,...words,...words];
 }
 
 // ── 词语切分（中文双字、英文整词）──────────
@@ -1419,25 +1414,15 @@ function initP5(){
     let wanderers=[];
     function buildWanderers(){
       wanderers=[];
-      // 以词为单元（中文双字、英文整词）
+      // 以词为单元（中文双字、英文整词），有多少用多少，不填充
       const rawWords=segmentWords(state.userText.trim());
-      const fallback=['感受','情绪','内心','深处','时光','记忆'];
-      const src=rawWords.length>0?rawWords:fallback;
+      const words=rawWords.length>0?rawWords:['·'];
 
       const fz=14;
       p.textSize(fz); p.textFont(cnFont);
       const lineH=fz*1.95;
       const padX=Math.max(32, Math.round(CW*0.08));
       const wordGap=5;
-      const targetChars=300+Math.round(intensity*20); // ~300-520字
-
-      // 收集词序列直到达到目标字数
-      const words=[];
-      let totalChars=0, wi=0;
-      while(totalChars<targetChars){
-        const w=src[wi%src.length]; words.push(w);
-        totalChars+=w.length; wi++;
-      }
 
       // 第一遍：计算排版坐标（y=0 基准）
       const layouts=[];
