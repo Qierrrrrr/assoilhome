@@ -339,6 +339,11 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
           <div class="sub-slider-label"><span>圆角</span><span id="radius-val">0</span></div>
           <input type="range" class="sub-slider" id="radius-slider" min="0" max="32" value="0">
         </div>
+        <div class="canvas-bg-btns">
+          <button class="canvas-bg-btn active" data-bg="#030303">黑</button>
+          <button class="canvas-bg-btn" data-bg="#f4f0e6">米</button>
+          <button class="canvas-bg-btn" data-bg="#fafafa">白</button>
+        </div>
       </div>
       <div class="panel-block" id="block-effect">
         <div class="panel-label panel-label-toggle open">效果</div>
@@ -359,8 +364,12 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
         </div>
       </div>
       <div class="panel-block" id="block-palette">
-        <div class="panel-label">色调</div>
-        <div class="palette-list" id="palette-list"></div>
+        <div class="panel-label panel-label-toggle open">色调</div>
+        <div class="panel-toggle-body">
+          <div class="panel-toggle-inner">
+            <div class="palette-list" id="palette-list"></div>
+          </div>
+        </div>
       </div>
       <div class="panel-block" id="block-border">
         <div class="panel-label panel-label-toggle open">边框</div>
@@ -488,7 +497,9 @@ const MASTERPIECES=[
 function buildPal(){
   const mp=MASTERPIECES[state.palette]||MASTERPIECES[10];
   const active=mp.colors.filter((_,i)=>(state.paletteActive||[])[i]!==false);
-  return {bg:'#030303',fg:'#0a0a0a',colors:active.length?active:mp.colors};
+  const bg=state.canvasBg||'#030303';
+  const fg=bg==='#030303'?'#0a0a0a':'#e8e4dc';
+  return {bg,fg,colors:active.length?active:mp.colors};
 }
 
 const TRANSLATIONS={
@@ -504,7 +515,7 @@ const TRANSLATIONS={
 const GROUP_NAMES={fear:'恐惧与不安',anger:'愤怒与敌意',disgust:'厌恶与轻蔑',sadness:'悲伤与失落',isolation:'孤立与被动',fragile:'脆弱与无力',confusion:'困惑与震惊'};
 
 // ── 状态 ──────────────────────────────────
-function freshState(){ return {bodyZone:null,intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:5}; }
+function freshState(){ return {bodyZone:null,intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:5,canvasBg:'#030303'}; }
 let state=freshState();
 
 // ── 页面切换 ──────────────────────────────
@@ -914,6 +925,16 @@ radiusSlider.addEventListener('input',()=>{
   document.getElementById('canvas-wrap').style.borderRadius=r+'px';
 });
 
+// 画布底色
+document.querySelectorAll('.canvas-bg-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.canvas-bg-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.canvasBg=btn.dataset.bg;
+    regenP5();
+  });
+});
+
 // 名画色板
 (function buildPaletteUI(){
   const list=document.getElementById('palette-list');
@@ -1046,6 +1067,7 @@ document.getElementById('btn-restart').addEventListener('click',()=>{
   document.querySelectorAll('[data-effect]').forEach(b=>b.classList.toggle('active',b.dataset.effect==='brush'));
   document.querySelectorAll('.palette-card').forEach((c,i)=>{ c.classList.toggle('active',i===10); c.querySelectorAll('.palette-swatch').forEach(sw=>sw.classList.remove('off')); });
   document.querySelectorAll('[data-border]').forEach(b=>b.classList.toggle('active',b.dataset.border==='none'));
+  document.querySelectorAll('.canvas-bg-btn').forEach(b=>b.classList.toggle('active',b.dataset.bg==='#030303'));
   document.querySelectorAll('.ratio-btn').forEach(b=>b.classList.toggle('active',b.dataset.ratio==='3:4'));
   document.getElementById('param-label').textContent='速度';
   document.getElementById('wind-slider').value=5;
@@ -1250,10 +1272,11 @@ function initP5(){
       }
       return pend.end.copy().add(acc||p.createVector(0,0)).add(offset);
     }
+    const isDark=p.red(p.color(pal.bg))<128;
     function drawPendArms(pend){
-      p.stroke(255,255,255,40); p.strokeWeight(0.8);
+      isDark?p.stroke(255,255,255,40):p.stroke(0,0,0,40); p.strokeWeight(0.8);
       p.line(0,0,pend.end.x,pend.end.y);
-      p.fill(255,255,255,25); p.noStroke();
+      isDark?p.fill(255,255,255,25):p.fill(0,0,0,25); p.noStroke();
       p.ellipse(pend.end.x,pend.end.y,3,3);
       if(pend.child){p.push();p.translate(pend.end.x,pend.end.y);drawPendArms(pend.child);p.pop();}
     }
@@ -1285,15 +1308,16 @@ function initP5(){
         i=j;
       }
       shape.lpIdx=i;
-      // 保持 pendPath 缓冲区小（仅保留尚未处理的部分+少量缓冲）
-      if(shape.pendPath.length>300){
-        const trim=shape.pendPath.length-300;
+      // 只在已处理足够多时才裁剪，避免 lpIdx 归零导致字符重播
+      const KEEP=30;
+      if(shape.lpIdx>KEEP){
+        const trim=shape.lpIdx-KEEP;
         shape.pendPath.splice(0,trim);
-        shape.lpIdx=Math.max(0,shape.lpIdx-trim);
+        shape.lpIdx=KEEP;
       }
     }
     function drawShape(shape){
-      p.strokeWeight(0.8); p.stroke(255,255,255,12); p.noFill();
+      p.strokeWeight(0.8); isDark?p.stroke(255,255,255,12):p.stroke(0,0,0,12); p.noFill();
       p.beginShape(); shape.shapePath.forEach(v=>p.vertex(v.x,v.y)); p.endShape();
       if(shape.letters.length>0){
         p.noStroke(); p.textAlign(p.LEFT,p.BASELINE);
