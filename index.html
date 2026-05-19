@@ -77,6 +77,10 @@ html,body { background:var(--bg); color:var(--ink); min-height:100vh; overflow-x
 .body-zone .zh-char { display:block; font-size:1.3rem; margin-bottom:0.2rem; font-weight:300; }
 .body-zone:hover,.body-zone.selected { border-color:var(--ink); opacity:1; background:var(--ink); color:var(--bg); }
 
+/* 身体气泡提示 */
+.body-quip { position:absolute; background:var(--ink); color:var(--bg); font-family:var(--serif-zh); font-size:0.75rem; padding:0.35rem 0.7rem; border-radius:3px; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity 0.2s; z-index:200; }
+.body-quip.show { opacity:1; }
+
 /* 强度 */
 .intensity-wrap { width:100%; max-width:380px; margin-bottom:2.5rem; }
 .intensity-labels { display:flex; justify-content:space-between; font-size:0.67rem; opacity:0.28; margin-bottom:1rem; }
@@ -102,6 +106,34 @@ input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.6); }
 .body-zone { border:1px solid var(--line); background:none; padding:0.5rem 0.3rem; cursor:pointer; font-family:var(--serif-zh); font-size:0.7rem; color:var(--ink); text-align:center; transition:all 0.18s; display:flex; flex-direction:column; align-items:center; gap:0.18rem; }
 .body-zone .zh-char { font-size:1.1rem; line-height:1; }
 .body-zone:hover,.body-zone.selected { border-color:var(--ink); background:var(--ink); color:var(--bg); }
+
+/* 科普卡片 */
+.body-trivia { margin-top:0.9rem; overflow:hidden; max-height:0; opacity:0; transition:max-height 0.45s ease, opacity 0.3s ease; }
+.body-trivia.visible { max-height:260px; opacity:1; }
+.trivia-viewport { position:relative; height:175px; }
+.trivia-card {
+  position:absolute; inset:0;
+  background:#fff; border-radius:8px;
+  box-shadow:0 2px 14px rgba(10,10,10,0.09), 0 1px 3px rgba(10,10,10,0.06);
+  padding:1rem 1.1rem;
+  display:flex; flex-direction:column; gap:0.5rem;
+  transform-origin:bottom center;
+  transition:transform 0.42s cubic-bezier(0.4,0,0.2,1), opacity 0.38s ease, box-shadow 0.3s ease;
+  will-change:transform,opacity;
+}
+.trivia-card.state-active  { transform:none; opacity:1; z-index:3; }
+.trivia-card.state-behind  { transform:translateX(6px) translateY(6px) scale(0.965); opacity:0.6; z-index:2; box-shadow:0 1px 6px rgba(10,10,10,0.06); pointer-events:none; }
+.trivia-card.state-hidden  { transform:translateX(10px) translateY(10px) scale(0.935); opacity:0; z-index:1; pointer-events:none; }
+.trivia-card.state-exit    { transform:translateX(-115%) translateY(18px) rotate(-7deg); opacity:0; z-index:4; pointer-events:none; }
+.trivia-card.state-enter   { transform:translateX(8px) translateY(8px) scale(0.96); opacity:0.5; z-index:2; }
+.trivia-zone-label { font-size:0.5rem; letter-spacing:0.28em; opacity:0.38; text-transform:uppercase; flex-shrink:0; }
+.trivia-text { font-family:var(--serif-zh); font-size:0.71rem; line-height:1.8; opacity:0.75; overflow-y:auto; flex:1; scrollbar-width:none; }
+.trivia-text::-webkit-scrollbar { display:none; }
+.trivia-nav { display:flex; justify-content:center; align-items:center; gap:0.7rem; margin-top:0.55rem; height:28px; }
+.trivia-arrow { width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:none; cursor:pointer; font-size:1rem; color:var(--ink); opacity:0.45; display:flex; align-items:center; justify-content:center; transition:opacity 0.18s, background 0.18s; line-height:1; padding:0; font-family:var(--serif-en); }
+.trivia-arrow:hover { opacity:1; background:var(--ink); color:var(--bg); }
+.trivia-arrow:disabled { opacity:0.15; cursor:default; pointer-events:none; }
+.trivia-counter { font-size:0.58rem; opacity:0.3; letter-spacing:0.08em; min-width:2.2em; text-align:center; }
 
 /* 强度 — 精简版 */
 .intensity-compact { display:flex; flex-direction:column; gap:0.5rem; }
@@ -293,13 +325,22 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
     <div class="input-left">
       <div class="input-section">
         <div class="section-label">它住在哪里</div>
-        <div class="body-map">
+        <div class="body-map" style="position:relative;">
           <button class="body-zone" data-val="head"><span class="zh-char">头</span>脑海</button>
           <button class="body-zone" data-val="throat"><span class="zh-char">喉</span>喉咙</button>
           <button class="body-zone" data-val="chest"><span class="zh-char">胸</span>胸口</button>
           <button class="body-zone" data-val="stomach"><span class="zh-char">胃</span>胃部</button>
           <button class="body-zone" data-val="hands"><span class="zh-char">手</span>双手</button>
           <button class="body-zone" data-val="whole"><span class="zh-char">全</span>全身</button>
+          <div id="body-quip" class="body-quip"></div>
+        </div>
+        <div class="body-trivia" id="body-trivia">
+          <div class="trivia-viewport" id="trivia-viewport"></div>
+          <div class="trivia-nav" id="trivia-nav">
+            <button class="trivia-arrow" id="trivia-prev">&#8249;</button>
+            <span class="trivia-counter" id="trivia-counter"></span>
+            <button class="trivia-arrow" id="trivia-next">&#8250;</button>
+          </div>
         </div>
       </div>
       <div class="input-section">
@@ -564,7 +605,7 @@ const TRANSLATIONS={
 const GROUP_NAMES={fear:'恐惧与不安',anger:'愤怒与敌意',disgust:'厌恶与轻蔑',sadness:'悲伤与失落',isolation:'孤立与被动',fragile:'脆弱与无力',confusion:'困惑与震惊'};
 
 // ── 状态 ──────────────────────────────────
-function freshState(){ return {bodyZone:null,intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:5,canvasBg:'#030303'}; }
+function freshState(){ return {bodyZones:[],intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:5,canvasBg:'#030303',cornerRadius:0}; }
 let state=freshState();
 
 // ── 页面切换 ──────────────────────────────
@@ -722,8 +763,178 @@ document.getElementById('btn-gallery-home').addEventListener('click',()=>{ playC
 })();
 
 // ── 合并输入页 ──────────────────────────────
-// 身体部位
-document.querySelectorAll('.body-zone').forEach(z=>{ z.addEventListener('click',()=>{ playClick(); document.querySelectorAll('.body-zone').forEach(b=>b.classList.remove('selected')); z.classList.add('selected'); state.bodyZone=z.dataset.val; }); });
+// 身体部位（多选，全身互斥）
+const BODY_QUIP={
+  head:'你是有几颗头呢？',
+  throat:'几根喉咙？',
+  chest:'几颗心？',
+  stomach:'几个胃？',
+  hands:'八只手？',
+  whole:'既然全身，那就是全身了'
+};
+let _quipTimer=null;
+function showBodyQuip(btn,val){
+  const quip=document.getElementById('body-quip');
+  if(!quip) return;
+  quip.textContent=BODY_QUIP[val]||'？';
+  const rect=btn.getBoundingClientRect();
+  const mapRect=btn.closest('.body-map').getBoundingClientRect();
+  quip.style.left=(rect.left-mapRect.left+rect.width/2)+'px';
+  quip.style.top=(rect.top-mapRect.top-36)+'px';
+  quip.style.transform='translateX(-50%)';
+  quip.classList.add('show');
+  if(_quipTimer) clearTimeout(_quipTimer);
+  _quipTimer=setTimeout(()=>{ quip.classList.remove('show'); },1800);
+}
+document.querySelectorAll('.body-zone').forEach(z=>{
+  z.addEventListener('click',()=>{
+    playClick();
+    const val=z.dataset.val;
+    if(val==='whole'){
+      if(state.bodyZones.includes('whole')){
+        state.bodyZones=[];
+        z.classList.remove('selected');
+      } else {
+        state.bodyZones=['whole'];
+        document.querySelectorAll('.body-zone').forEach(b=>b.classList.remove('selected'));
+        z.classList.add('selected');
+      }
+    } else {
+      if(state.bodyZones.includes('whole')){
+        showBodyQuip(z,val);
+        return;
+      }
+      if(state.bodyZones.includes(val)){
+        state.bodyZones=state.bodyZones.filter(v=>v!==val);
+        z.classList.remove('selected');
+      } else {
+        state.bodyZones.push(val);
+        z.classList.add('selected');
+      }
+    }
+    _triviaIdx=0;
+    const vp=document.getElementById('trivia-viewport');
+    if(vp) vp.innerHTML='';
+    renderTrivia();
+  });
+});
+
+// 科普内容
+const BODY_TRIVIA={
+  head:{label:'头脑海',text:'芬兰图尔库大学 Nummenmaa 等人（2014）让700余名受试者在人体轮廓图上标注情绪的身体感知位置，发现焦虑与思虑过度显著激活头部区域。'},
+  throat:{label:'喉咙',text:'心理学家 Peter Levine 在躯体体验疗法（Somatic Experiencing）的研究与临床实践中指出，喉咙是情绪表达与压抑的交汇处，未被说出的悲伤与愤怒常以喉部收紧的形式驻留。'},
+  chest:{label:'胸口',text:'约翰霍普金斯大学的研究显示，强烈的情绪应激可引发"心碎综合征"（Takotsubo 综合征），心脏在极度情绪压力下会出现真实的功能性改变。自主神经系统的激活使胸口的感受不只是比喻。'},
+  stomach:{label:'胃部',text:'哥伦比亚大学神经科学家 Michael Gershon 提出"第二大脑"理论：肠道拥有约1亿个神经元，可独立于大脑运作。焦虑与恐惧往往最先在肠胃产生可感知的躯体信号。——"gut feeling"不只是比喻。'},
+  hands:{label:'双手',text:'哈佛大学心理学家 Walter Cannon 提出的"战斗或逃跑反应"理论中，愤怒与紧张会触发交感神经系统，导致手部肌肉收缩、血流增加。握紧双拳是数百万年进化留下的身体记忆。'},
+  whole:{label:'全身',text:'Nummenmaa 等人（2014）的同一项研究中，抑郁情绪呈现出独特的躯体地图：上肢活动感减弱，全身出现弥散性的低激活状态——感受不到具体的位置，只是"哪里都不对劲"。这是抑郁的躯体语言。'}
+};
+
+let _triviaIdx=0;
+let _triviaAnimating=false;
+
+function _triviaState(i,cur,total){
+  const offset=(i-cur+total)%total;
+  if(offset===0) return 'state-active';
+  if(offset===1) return 'state-behind';
+  if(offset===2) return 'state-hidden';
+  return 'state-hidden';
+}
+
+function renderTrivia(animate){
+  const zones=state.bodyZones||[];
+  const trivia=document.getElementById('body-trivia');
+  const viewport=document.getElementById('trivia-viewport');
+  const nav=document.getElementById('trivia-nav');
+  const counter=document.getElementById('trivia-counter');
+  const prevBtn=document.getElementById('trivia-prev');
+  const nextBtn=document.getElementById('trivia-next');
+  if(!trivia||!viewport) return;
+  if(zones.length===0){ trivia.classList.remove('visible'); return; }
+  trivia.classList.add('visible');
+  _triviaIdx=(((_triviaIdx%zones.length)+zones.length)%zones.length);
+
+  // 构建卡片（保持 DOM 不重建，仅更新 state class）
+  const existing=viewport.querySelectorAll('.trivia-card');
+  if(existing.length!==zones.length){
+    // 首次或 zones 变化：重建
+    viewport.innerHTML='';
+    zones.forEach((val,i)=>{
+      const d=BODY_TRIVIA[val]; if(!d) return;
+      const card=document.createElement('div');
+      card.className='trivia-card '+_triviaState(i,_triviaIdx,zones.length);
+      card.dataset.idx=i;
+      card.innerHTML=`<div class="trivia-zone-label">${d.label}</div><div class="trivia-text">${d.text}</div>`;
+      viewport.appendChild(card);
+    });
+  } else {
+    existing.forEach((card,i)=>{
+      card.className='trivia-card '+_triviaState(i,_triviaIdx,zones.length);
+    });
+  }
+
+  // 导航栏
+  if(nav) nav.style.visibility=zones.length>1?'visible':'hidden';
+  if(counter) counter.textContent=zones.length>1?`${_triviaIdx+1} / ${zones.length}`:'';
+  if(prevBtn) prevBtn.disabled=false;
+  if(nextBtn) nextBtn.disabled=false;
+}
+
+function triviaNavigate(dir){
+  if(_triviaAnimating) return;
+  const zones=state.bodyZones||[];
+  if(zones.length<=1) return;
+  const viewport=document.getElementById('trivia-viewport');
+  if(!viewport) return;
+
+  const cards=[...viewport.querySelectorAll('.trivia-card')];
+  const activeCard=cards[_triviaIdx];
+  if(!activeCard) return;
+
+  _triviaAnimating=true;
+  if(dir===1){
+    // 向右翻：当前卡片飞出左下
+    activeCard.className='trivia-card state-exit';
+    _triviaIdx=(_triviaIdx+1)%zones.length;
+    // 将新 active 从 behind 提升
+    requestAnimationFrame(()=>{
+      cards.forEach((c,i)=>{ if(i!==_triviaIdx) c.className='trivia-card state-hidden'; });
+      cards[_triviaIdx].className='trivia-card state-active';
+      // behind 卡
+      const behindIdx=(_triviaIdx+1)%zones.length;
+      if(zones.length>1) cards[behindIdx].className='trivia-card state-behind';
+      if(zones.length>2) cards[(_triviaIdx+2)%zones.length].className='trivia-card state-hidden';
+    });
+  } else {
+    // 向左翻：先把目标卡快速移到 behind 位再 animate 到 active
+    _triviaIdx=(_triviaIdx-1+zones.length)%zones.length;
+    const target=cards[_triviaIdx];
+    target.style.transition='none';
+    target.className='trivia-card state-behind';
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        target.style.transition='';
+        target.className='trivia-card state-active';
+        // 旧 active 退为 behind
+        const oldIdx=(_triviaIdx+1)%zones.length;
+        cards[oldIdx].className='trivia-card state-behind';
+        cards.forEach((c,i)=>{
+          if(i!==_triviaIdx && i!==oldIdx) c.className='trivia-card state-hidden';
+        });
+      });
+    });
+  }
+
+  const updateCounter=()=>{
+    const counter=document.getElementById('trivia-counter');
+    if(counter && zones.length>1) counter.textContent=`${_triviaIdx+1} / ${zones.length}`;
+    _triviaAnimating=false;
+  };
+  activeCard.addEventListener('transitionend',updateCounter,{once:true});
+  setTimeout(updateCounter,500); // 保险 fallback
+}
+
+document.getElementById('trivia-prev').addEventListener('click',()=>triviaNavigate(-1));
+document.getElementById('trivia-next').addEventListener('click',()=>triviaNavigate(1));
 
 // 强度
 const iLabels=['','微微','有点','明显','蔓延','明显','扩散','强烈','很强','极强','沸腾'];
@@ -979,6 +1190,7 @@ windSlider.addEventListener('input',()=>{ state.windSpeed=parseInt(windSlider.va
 const radiusSlider=document.getElementById('radius-slider');
 radiusSlider.addEventListener('input',()=>{
   const r=parseInt(radiusSlider.value);
+  state.cornerRadius=r;
   document.getElementById('radius-val').textContent=r;
   document.getElementById('canvas-wrap').style.borderRadius=r+'px';
 });
@@ -1052,9 +1264,19 @@ document.querySelectorAll('[data-border]').forEach(btn=>{ btn.addEventListener('
 function hqDataURL(){
   const canvas=document.querySelector('#canvas-wrap canvas');
   if(!canvas) return null;
-  // pixelDensity(2) 已在 setup 中设置，canvas.width 即为 2x 物理尺寸
-  // 直接导出全分辨率 PNG
-  return canvas.toDataURL('image/png');
+  const r=state.cornerRadius||0;
+  if(r===0) return canvas.toDataURL('image/png');
+  // 圆角：用 offscreen canvas 裁剪，角外透明
+  const dpr=canvas.width/canvas.offsetWidth||2;
+  const rPx=r*dpr; // 缩放到物理像素
+  const oc=document.createElement('canvas');
+  oc.width=canvas.width; oc.height=canvas.height;
+  const ctx=oc.getContext('2d');
+  ctx.beginPath();
+  ctx.roundRect(0,0,oc.width,oc.height,rPx);
+  ctx.clip();
+  ctx.drawImage(canvas,0,0);
+  return oc.toDataURL('image/png');
 }
 
 function gmt8DateStr(){
@@ -1141,6 +1363,9 @@ document.getElementById('btn-restart').addEventListener('click',()=>{
   document.querySelectorAll('.ratio-btn').forEach(b=>b.classList.toggle('active',b.dataset.ratio==='3:4'));
   document.getElementById('param-label').textContent='速度';
   document.getElementById('wind-slider').value=5;
+  document.getElementById('radius-slider').value=0;
+  document.getElementById('radius-val').textContent=0;
+  document.getElementById('canvas-wrap').style.borderRadius='0px';
   document.getElementById('wind-val').textContent='5';
   showPage('page-home');
 });
@@ -1155,7 +1380,7 @@ function saveToGallery(dataURL, title='未命名'){
       emotion:state.emotionGroup||null,
       tags:state.emotionTags.slice(0,3).join('·'),
       text:state.userText||'',
-      bodyZone:state.bodyZone||null,
+      bodyZones:state.bodyZones.length?state.bodyZones:null,
       intensity:state.intensity||5,
       date:gmt8DateStr(),
       ts:Date.now()
@@ -1178,7 +1403,8 @@ function openLightbox(item){
   const emotionLine=[emotionStr,item.tags].filter(Boolean).join(' · ');
   document.getElementById('lightbox-emotion').textContent=emotionLine;
   // 身体位置 + 强度
-  const bodyStr=item.bodyZone?BODY_SHORT[item.bodyZone]||item.bodyZone:'';
+  const zones=item.bodyZones||( item.bodyZone?[item.bodyZone]:[] );
+  const bodyStr=zones.map(v=>BODY_SHORT[v]||v).join('·');
   const intensityStr=item.intensity!=null?iLabels[item.intensity]||String(item.intensity):'';
   document.getElementById('lightbox-body-intensity').textContent=[bodyStr,intensityStr].filter(Boolean).join('  ·  ');
   document.getElementById('lightbox-text').textContent=item.text||'';
@@ -1819,13 +2045,13 @@ function initP5(){
     };
 
     function drawBorder(p){
-      if(state.border==='none') return;
       const isDarkBg=p.red(p.color(pal.bg))<128;
-      // 每帧先清除边框区域，防止在书写等不清屏效果下各边框叠加残留
-      const BW=30;
+      // 每帧先清除边框区域（包括无边框时），防止书写效果残留上一种边框
+      const BW=32;
       p.noStroke(); p.fill(p.color(pal.bg));
       p.rect(0,0,CW,BW); p.rect(0,CH-BW,CW,BW);
       p.rect(0,BW,BW,CH-BW*2); p.rect(CW-BW,BW,BW,CH-BW*2);
+      if(state.border==='none') return;
 
       if(state.border==='stamp'){
         // 颜色随背景适配
