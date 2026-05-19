@@ -425,8 +425,8 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
               <button class="panel-btn" data-effect="wander">游走</button>
             </div>
             <div class="sub-slider-wrap" id="wind-wrap">
-              <div class="sub-slider-label"><span id="param-label">速度</span><span id="wind-val">5</span></div>
-              <input type="range" class="sub-slider" id="wind-slider" min="1" max="10" value="4">
+              <div class="sub-slider-label"><span id="param-label">速度</span><span id="wind-val">3</span></div>
+              <input type="range" class="sub-slider" id="wind-slider" min="1" max="5" value="3">
             </div>
           </div>
         </div>
@@ -605,7 +605,7 @@ const TRANSLATIONS={
 const GROUP_NAMES={fear:'恐惧与不安',anger:'愤怒与敌意',disgust:'厌恶与轻蔑',sadness:'悲伤与失落',isolation:'孤立与被动',fragile:'脆弱与无力',confusion:'困惑与震惊'};
 
 // ── 状态 ──────────────────────────────────
-function freshState(){ return {bodyZones:[],intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:5,canvasBg:'#030303',cornerRadius:0}; }
+function freshState(){ return {bodyZones:[],intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:3,canvasBg:'#030303',cornerRadius:0}; }
 let state=freshState();
 
 // ── 页面切换 ──────────────────────────────
@@ -1180,7 +1180,7 @@ document.querySelectorAll('.ratio-btn').forEach(btn=>{ btn.addEventListener('cli
 
 // 效果
 const paramLabelMap={pixel:'速度',brush:'扭曲',pendulum:'关节',glyph:'扰动',wander:'速度'};
-document.querySelectorAll('[data-effect]').forEach(btn=>{ btn.addEventListener('click',()=>{ playClick(); document.querySelectorAll('[data-effect]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.effect=btn.dataset.effect; document.getElementById('param-label').textContent=paramLabelMap[state.effect]||'参数'; const wh=document.getElementById('wander-hint'); if(wh) wh.style.display=state.effect==='wander'?'block':'none'; regenP5(); }); });
+document.querySelectorAll('[data-effect]').forEach(btn=>{ btn.addEventListener('click',()=>{ playClick(); document.querySelectorAll('[data-effect]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.effect=btn.dataset.effect; document.getElementById('param-label').textContent=paramLabelMap[state.effect]||'参数'; document.getElementById('wind-val').textContent=state.windSpeed; document.getElementById('wind-slider').value=state.windSpeed; const wh=document.getElementById('wander-hint'); if(wh) wh.style.display=state.effect==='wander'?'block':'none'; regenP5(); }); });
 
 // 参数滑条
 const windSlider=document.getElementById('wind-slider');
@@ -1362,11 +1362,11 @@ document.getElementById('btn-restart').addEventListener('click',()=>{
   document.querySelectorAll('.canvas-bg-btn').forEach(b=>b.classList.toggle('active',b.dataset.bg==='#030303'));
   document.querySelectorAll('.ratio-btn').forEach(b=>b.classList.toggle('active',b.dataset.ratio==='3:4'));
   document.getElementById('param-label').textContent='速度';
-  document.getElementById('wind-slider').value=5;
+  document.getElementById('wind-slider').value=3;
   document.getElementById('radius-slider').value=0;
   document.getElementById('radius-val').textContent=0;
   document.getElementById('canvas-wrap').style.borderRadius='0px';
-  document.getElementById('wind-val').textContent='5';
+  document.getElementById('wind-val').textContent='3';
   showPage('page-home');
 });
 
@@ -1626,7 +1626,7 @@ function initP5(){
 
     // ━━━━━━ 钟摆 ━━━━━━
     let pendShapes=[], pendNewShape=null;
-    const PJTS=Math.max(2,Math.min(6,Math.round(p.map(param,1,10,2,6))));
+    // PJTS 在 makeShape 时动态读取，不再作为常量
     const PLEN=Math.min(CW,CH)*0.22;
     const PGRAV=0.06+intensity*0.005;
     const PDAMP=0.998;
@@ -1658,7 +1658,8 @@ function initP5(){
       if(pend.child){p.push();p.translate(pend.end.x,pend.end.y);drawPendArms(pend.child);p.pop();}
     }
     function makeShape(col){
-      return {shapePath:[],pendPath:[],letters:[],col,iter:0,pend:makePend(PLEN,PJTS),lpIdx:0,tIdx:0};
+      const jts=Math.max(1,Math.min(5,state.windSpeed));
+      return {shapePath:[],pendPath:[],letters:[],col,iter:0,pend:makePend(PLEN,jts),lpIdx:0,tIdx:0};
     }
     // 增量放置字符：只处理 pendPath 中尚未处理的新增部分
     function placePendLetters(shape){
