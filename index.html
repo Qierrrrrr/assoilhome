@@ -152,10 +152,15 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .sub-slider { -webkit-appearance:none; width:100%; height:1px; background:var(--ink); outline:none; cursor:pointer; }
 .sub-slider::-webkit-slider-thumb { -webkit-appearance:none; width:11px; height:11px; background:var(--ink); border-radius:50%; cursor:pointer; }
 
-.color-dots { display:flex; gap:0.5rem; flex-wrap:wrap; }
-.color-dot { width:25px; height:25px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform 0.15s; }
-.color-dot:hover { transform:scale(1.25); }
-.color-dot.active { border-color:var(--ink); transform:scale(1.1); }
+.palette-list { display:flex; flex-direction:column; gap:0.28rem; }
+.palette-card { cursor:pointer; padding:0.32rem 0.45rem; border:1px solid transparent; transition:border-color 0.15s; border-radius:2px; }
+.palette-card:hover { border-color:rgba(10,10,10,0.18); }
+.palette-card.active { border-color:var(--ink); }
+.palette-name { font-size:0.56rem; letter-spacing:0.04em; opacity:0.44; margin-bottom:0.22rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--serif-zh); }
+.palette-swatches { display:flex; gap:2px; }
+.palette-swatch { flex:1; height:12px; border-radius:3px; transition:opacity 0.18s; }
+.palette-card.active .palette-swatch { cursor:pointer; }
+.palette-swatch.off { opacity:0.18; }
 
 .panel-actions { padding:0.85rem 1.4rem; margin-top:auto; display:flex; flex-direction:column; gap:0.4rem; }
 .action-btn { border:1px solid var(--line); background:none; padding:0.72rem; font-family:var(--serif-zh); font-size:0.74rem; letter-spacing:0.08em; cursor:pointer; transition:all 0.2s; color:var(--ink); text-align:center; }
@@ -349,16 +354,9 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
           </div>
         </div>
       </div>
-      <div class="panel-block">
+      <div class="panel-block" id="block-palette">
         <div class="panel-label">色调</div>
-        <div class="color-dots" id="color-dots">
-          <div class="color-dot active" data-palette="default" style="background:#ff3a00" title="烈焰"></div>
-          <div class="color-dot" data-palette="cold" style="background:#0057ff" title="寒蓝"></div>
-          <div class="color-dot" data-palette="void" style="background:#7a00c0" title="虚空"></div>
-          <div class="color-dot" data-palette="bile" style="background:#6b7c2a" title="胆汁"></div>
-          <div class="color-dot" data-palette="ash" style="background:#888" title="灰烬"></div>
-          <div class="color-dot" data-palette="blood" style="background:#8b0000" title="血色"></div>
-        </div>
+        <div class="palette-list" id="palette-list"></div>
       </div>
       <div class="panel-block" id="block-border">
         <div class="panel-label panel-label-toggle open">边框</div>
@@ -463,14 +461,31 @@ const EMOTIONS={
   confusion:['惊讶','吃惊','迷惑','震惊','困惑','惊骇','尴尬','消极'],
 };
 
-const PALETTES={
-  default:{bg:'#050000',fg:'#1a0500',colors:['#cc2200','#ee4400','#ff7700','#ffbb00']},
-  cold:   {bg:'#000408',fg:'#000c20',colors:['#0044cc','#0088ff','#44bbff','#aaddff']},
-  void:   {bg:'#030008',fg:'#0d0020',colors:['#5500aa','#9900ee','#cc44ff','#eebb ff']},
-  bile:   {bg:'#050800',fg:'#0e1400',colors:['#556600','#88aa00','#bbdd22','#ddf055']},
-  ash:    {bg:'#080808',fg:'#181818',colors:['#333','#666','#999','#ccc']},
-  blood:  {bg:'#030000',fg:'#0e0000',colors:['#660000','#aa0000','#cc2020','#ee5050']},
-};
+const MASTERPIECES=[
+  {name:'阿尔布雷希特《金色云彩》',  colors:['#171635','#00225D','#763262','#CA7508','#E9A621']},
+  {name:'米尔顿·埃弗里《大提琴演奏者》',colors:['#E2CACD','#2E7CA8','#F1C061','#DA7338','#741D13']},
+  {name:'希尔玛·阿夫·克林特《天鹅》',colors:['#D6CFC4','#466CA6','#D1AE45','#87240E','#040204']},
+  {name:'波特罗《坐着的裸女》',       colors:['#99B6BD','#B3A86A','#ECC9A0','#D4613E','#BB9568']},
+  {name:'波提切利《维纳斯的诞生》',   colors:['#7A989A','#849271','#C1AE8D','#CF9546','#C67052']},
+  {name:'玛丽·卡萨特《信》',         colors:['#1C5679','#BBB592','#CAC3B2','#808C5C','#5F4B3B']},
+  {name:'达利《海滩上的面孔与果盘的幻象》',colors:['#9BC0CC','#CAD8D8','#D0CE9F','#806641','#534832']},
+  {name:'达芬奇《蒙娜丽莎》',         colors:['#C8B272','#A88B4C','#A0A584','#697153','#43362A']},
+  {name:'高更《午睡》',               colors:['#21344F','#8AAD05','#E2CE1B','#DF5D22','#E17976']},
+  {name:'蒙德里安《百老汇爵士乐》',   colors:['#314290','#4A71C0','#F1F2ED','#F0D32D','#AB3A2C']},
+  {name:'莫奈《撑阳伞的女人》',       colors:['#82A4BC','#4C7899','#2F5136','#B1B94C','#E5DCBE']},
+  {name:'蒙克《呐喊》（粉彩版）',     colors:['#5059A1','#EFC337','#1F386E','#D1AE82','#BE3B2C']},
+  {name:'毕加索《亚威农少女》',       colors:['#CD6C74','#566C7D','#DD9D91','#A1544B','#D5898D']},
+  {name:'伦勃朗《夜巡》',             colors:['#DBC99A','#A68329','#5B5224','#8A350C','#090A04']},
+  {name:'雷诺阿《钢琴旁的少女们》',   colors:['#303241','#B7A067','#C8C2B2','#686D4F','#4D3930']},
+  {name:'萨金特《马利亚别墅，卢卡》', colors:['#778BD0','#E2D76B','#95BF78','#4E6A3D','#5F4F38']},
+  {name:'梵高《星夜》',               colors:['#1A3431','#2B41A7','#6283C8','#CCC776','#C7AD24']},
+];
+// 根据选中色板和激活开关动态构建 pal 对象
+function buildPal(){
+  const mp=MASTERPIECES[state.palette]||MASTERPIECES[10];
+  const active=mp.colors.filter((_,i)=>(state.paletteActive||[])[i]!==false);
+  return {bg:'#030303',fg:'#0a0a0a',colors:active.length?active:mp.colors};
+}
 
 const TRANSLATIONS={
   anger:  ['愤怒','Rage','Wut','怒り','분노','Colère','Гнев','غضب','क्रोध','憤怒'],
@@ -485,7 +500,7 @@ const TRANSLATIONS={
 const GROUP_NAMES={fear:'恐惧与不安',anger:'愤怒与敌意',disgust:'厌恶与轻蔑',sadness:'悲伤与失落',isolation:'孤立与被动',fragile:'脆弱与无力',confusion:'困惑与震惊'};
 
 // ── 状态 ──────────────────────────────────
-function freshState(){ return {bodyZone:null,intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:'default',border:'none',ratio:'3:4',windSpeed:5}; }
+function freshState(){ return {bodyZone:null,intensity:5,emotionGroup:null,emotionTags:[],userText:'',effect:'brush',palette:10,paletteActive:[true,true,true,true,true],border:'none',ratio:'3:4',windSpeed:5}; }
 let state=freshState();
 
 // ── 页面切换 ──────────────────────────────
@@ -895,8 +910,57 @@ radiusSlider.addEventListener('input',()=>{
   document.getElementById('canvas-wrap').style.borderRadius=r+'px';
 });
 
-// 色板
-document.querySelectorAll('.color-dot').forEach(dot=>{ dot.addEventListener('click',()=>{ playClick(); document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active')); dot.classList.add('active'); state.palette=dot.dataset.palette; regenP5(); }); });
+// 名画色板
+(function buildPaletteUI(){
+  const list=document.getElementById('palette-list');
+  MASTERPIECES.forEach((mp,idx)=>{
+    const card=document.createElement('div');
+    card.className='palette-card'+(idx===state.palette?' active':'');
+    card.dataset.idx=idx;
+
+    const nameEl=document.createElement('div');
+    nameEl.className='palette-name'; nameEl.textContent=mp.name;
+    card.appendChild(nameEl);
+
+    const swatchRow=document.createElement('div');
+    swatchRow.className='palette-swatches';
+    mp.colors.forEach((hex,ci)=>{
+      const sw=document.createElement('div');
+      sw.className='palette-swatch'+(state.paletteActive[ci]===false?' off':'');
+      sw.style.background=hex;
+      sw.dataset.ci=ci;
+      swatchRow.appendChild(sw);
+    });
+    card.appendChild(swatchRow);
+
+    // 点击色卡：选中该色板
+    card.addEventListener('click',e=>{
+      // 若已选中，点击色块切换激活状态
+      if(card.classList.contains('active')){
+        const sw=e.target.closest('.palette-swatch');
+        if(sw){
+          const ci=parseInt(sw.dataset.ci);
+          const onCount=state.paletteActive.filter(Boolean).length;
+          if(state.paletteActive[ci]&&onCount<=1) return; // 至少保留1个
+          state.paletteActive[ci]=!state.paletteActive[ci];
+          sw.classList.toggle('off',!state.paletteActive[ci]);
+          playClick(); regenP5(); return;
+        }
+        return;
+      }
+      // 切换到新色板
+      playClick();
+      document.querySelectorAll('.palette-card').forEach(c=>c.classList.remove('active'));
+      card.classList.add('active');
+      state.palette=idx;
+      state.paletteActive=[true,true,true,true,true];
+      card.querySelectorAll('.palette-swatch').forEach(sw=>sw.classList.remove('off'));
+      regenP5();
+    });
+
+    list.appendChild(card);
+  });
+})();
 
 // 边框
 document.querySelectorAll('[data-border]').forEach(btn=>{ btn.addEventListener('click',()=>{ playClick(); document.querySelectorAll('[data-border]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.border=btn.dataset.border; }); });
@@ -976,7 +1040,7 @@ document.getElementById('btn-restart').addEventListener('click',()=>{
   document.getElementById('char-count').textContent='0';
   document.getElementById('gen-edit-text').value='';
   document.querySelectorAll('[data-effect]').forEach(b=>b.classList.toggle('active',b.dataset.effect==='brush'));
-  document.querySelectorAll('.color-dot').forEach(d=>d.classList.toggle('active',d.dataset.palette==='default'));
+  document.querySelectorAll('.palette-card').forEach((c,i)=>{ c.classList.toggle('active',i===10); c.querySelectorAll('.palette-swatch').forEach(sw=>sw.classList.remove('off')); });
   document.querySelectorAll('[data-border]').forEach(b=>b.classList.toggle('active',b.dataset.border==='none'));
   document.querySelectorAll('.ratio-btn').forEach(b=>b.classList.toggle('active',b.dataset.ratio==='3:4'));
   document.getElementById('param-label').textContent='速度';
@@ -1129,7 +1193,7 @@ function getCanvasSize(){
 function initP5(){
   const wrap=document.getElementById('canvas-wrap');
   wrap.innerHTML='';
-  const pal=PALETTES[state.palette]||PALETTES.default;
+  const pal=buildPal();
   const textPool=buildTextPool();
   const intensity=state.intensity;
   const {w:CW,h:CH}=getCanvasSize();
