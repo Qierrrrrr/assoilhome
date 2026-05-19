@@ -158,9 +158,13 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .palette-card.active { border-color:var(--ink); }
 .palette-name { font-size:0.56rem; letter-spacing:0.04em; opacity:0.44; margin-bottom:0.22rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--serif-zh); }
 .palette-swatches { display:flex; gap:2px; }
-.palette-swatch { flex:1; height:12px; border-radius:3px; transition:opacity 0.18s; }
+.palette-swatch { flex:1; height:12px; border-radius:3px; transition:opacity 0.22s ease; }
 .palette-card.active .palette-swatch { cursor:pointer; }
-.palette-swatch.off { opacity:0.18; }
+.palette-swatch.off { opacity:0.15; }
+/* 画布底色 */
+.canvas-bg-btns { display:flex; gap:0.35rem; margin-top:0.55rem; }
+.canvas-bg-btn { flex:1; border:1px solid var(--line); background:none; padding:0.38rem 0; font-family:var(--serif-zh); font-size:0.68rem; cursor:pointer; color:var(--ink); transition:all 0.18s; }
+.canvas-bg-btn:hover,.canvas-bg-btn.active { border-color:var(--ink); background:var(--ink); color:var(--bg); }
 
 .panel-actions { padding:0.85rem 1.4rem; margin-top:auto; display:flex; flex-direction:column; gap:0.4rem; }
 .action-btn { border:1px solid var(--line); background:none; padding:0.72rem; font-family:var(--serif-zh); font-size:0.74rem; letter-spacing:0.08em; cursor:pointer; transition:all 0.2s; color:var(--ink); text-align:center; }
@@ -1275,7 +1279,8 @@ function initP5(){
         const nxt=path[j];
         const sz=Math.max(FSP_MIN,Math.min(d*1.2,36));
         shape.tIdx++;
-        shape.letters.push({x:pos.x,y:pos.y,ang:Math.atan2(nxt.y-pos.y,nxt.x-pos.x),ch,sz});
+        const lc=pal.colors[Math.floor(p.random(pal.colors.length))];
+        shape.letters.push({x:pos.x,y:pos.y,ang:Math.atan2(nxt.y-pos.y,nxt.x-pos.x),ch,sz,col:lc});
         if(shape.letters.length>700) shape.letters.shift();
         i=j;
       }
@@ -1292,8 +1297,8 @@ function initP5(){
       p.beginShape(); shape.shapePath.forEach(v=>p.vertex(v.x,v.y)); p.endShape();
       if(shape.letters.length>0){
         p.noStroke(); p.textAlign(p.LEFT,p.BASELINE);
-        const fc=p.color(shape.col); fc.setAlpha(200); p.fill(fc);
         shape.letters.forEach(l=>{
+          const fc=p.color(l.col||shape.col); fc.setAlpha(200); p.fill(fc);
           p.textSize(l.sz);
           p.push(); p.translate(l.x,l.y); p.rotate(l.ang); p.text(l.ch,0,0); p.pop();
         });
