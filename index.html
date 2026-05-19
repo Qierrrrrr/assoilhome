@@ -391,7 +391,7 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
         </div>
       </div>
       <div class="panel-block" id="block-palette">
-        <div class="panel-label panel-label-toggle open">色调</div>
+        <div class="panel-label panel-label-toggle">色调</div>
         <div class="panel-toggle-body">
           <div class="panel-toggle-inner">
             <div class="palette-list" id="palette-list"></div>
@@ -399,7 +399,7 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
         </div>
       </div>
       <div class="panel-block" id="block-border">
-        <div class="panel-label panel-label-toggle open">边框</div>
+        <div class="panel-label panel-label-toggle">边框</div>
         <div class="panel-toggle-body">
           <div class="panel-toggle-inner">
             <div class="panel-btns" style="margin-top:0.6rem;">
@@ -1820,20 +1820,41 @@ function initP5(){
 
     function drawBorder(p){
       if(state.border==='none') return;
+      const isDarkBg=p.red(p.color(pal.bg))<128;
+      // 每帧先清除边框区域，防止在书写等不清屏效果下各边框叠加残留
+      const BW=30;
+      p.noStroke(); p.fill(p.color(pal.bg));
+      p.rect(0,0,CW,BW); p.rect(0,CH-BW,CW,BW);
+      p.rect(0,BW,BW,CH-BW*2); p.rect(CW-BW,BW,BW,CH-BW*2);
+
       if(state.border==='stamp'){
-        p.stroke(255,255,255,40);p.strokeWeight(9);p.noFill();p.rect(14,14,CW-28,CH-28);
-        p.strokeWeight(1.2);p.stroke(255,255,255,20);
+        // 颜色随背景适配
+        const sc=isDarkBg?[255,255,255]:[10,10,10];
+        p.stroke(sc[0],sc[1],sc[2],isDarkBg?38:30);p.strokeWeight(9);p.noFill();
+        p.rect(14,14,CW-28,CH-28);
+        p.strokeWeight(1);p.stroke(sc[0],sc[1],sc[2],isDarkBg?22:18);
         for(let x=14;x<CW-14;x+=9){ p.line(x,14,x,22);p.line(x,CH-14,x,CH-22); }
         for(let y=14;y<CH-14;y+=9){ p.line(14,y,22,y);p.line(CW-14,y,CW-22,y); }
       }
       if(state.border==='film'){
-        p.fill(0,0,0,230);p.noStroke();p.rect(0,0,CW,22);p.rect(0,CH-22,CW,22);
-        p.fill(255,255,255,30);p.noStroke();
-        for(let x=7;x<CW;x+=18){ p.rect(x,3,11,16,2);p.rect(x,CH-19,11,16,2); }
-        p.fill(255,255,255,35);p.textFont('Noto Serif SC');p.textSize(8);p.text('ass.ho  '+new Date().toLocaleDateString('zh-CN'),12,CH-7);
+        // 胶片：左右两侧竖向胶片条，颜色固定黑色（现实胶片固定）
+        const FW=28, holeW=12, holeH=18, holeGap=22, holeX=8;
+        p.fill(0,0,0,230);p.noStroke();
+        p.rect(0,0,FW,CH); p.rect(CW-FW,0,FW,CH);
+        p.fill(255,255,255,28);p.noStroke();
+        for(let y=holeGap;y<CH-holeH;y+=holeGap+holeH){
+          p.rect(holeX,y,holeW,holeH,2);
+          p.rect(CW-FW+holeX,y,holeW,holeH,2);
+        }
+        p.fill(255,255,255,28);p.textFont('Noto Serif SC');p.textSize(7);
+        p.push();p.translate(FW/2,CH-12);p.rotate(-p.HALF_PI);
+        p.text('ass.ho  '+new Date().toLocaleDateString('zh-CN'),0,0);
+        p.pop();
       }
       if(state.border==='torn'){
-        p.stroke(255,255,255,28);p.strokeWeight(1);
+        // 颜色随背景适配
+        const sc=isDarkBg?[255,255,255]:[10,10,10];
+        p.stroke(sc[0],sc[1],sc[2],isDarkBg?30:22);p.strokeWeight(1);
         for(let x=0;x<CW;x+=3){ p.point(x,14+p.noise(x*0.04)*13);p.point(x,CH-14-p.noise(x*0.04+100)*13); }
         for(let y=22;y<CH-22;y+=3){ p.point(14+p.noise(y*0.04+200)*13,y);p.point(CW-14-p.noise(y*0.04+300)*13,y); }
       }
