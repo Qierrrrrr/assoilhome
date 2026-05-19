@@ -188,6 +188,18 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .gallery-empty { flex:1; display:flex; align-items:center; justify-content:center; font-size:0.85rem; opacity:0.28; font-style:italic; flex-direction:column; gap:0.5rem; }
 .gallery-footer { padding:1.4rem 3rem; border-top:1px solid var(--line); display:flex; gap:1.5rem; }
 
+/* 音乐播放器 */
+#music-player { position:fixed; top:1.25rem; left:3rem; z-index:1000; display:flex; align-items:center; gap:0.5rem; }
+#music-btn { background:none; border:none; cursor:pointer; font-family:var(--serif-en); font-size:1rem; color:var(--ink); opacity:0.22; transition:opacity 0.25s; padding:0 0.2rem; line-height:1; user-select:none; }
+#music-btn:hover { opacity:0.6; }
+#music-btn.playing { opacity:0.38; }
+#music-menu { position:absolute; top:1.8rem; left:0; background:var(--bg); border:1px solid var(--line); display:none; flex-direction:column; min-width:88px; box-shadow:0 4px 16px rgba(10,10,10,0.08); }
+#music-player.open #music-menu { display:flex; }
+.music-opt { background:none; border:none; padding:0.55rem 1rem; font-family:var(--serif-zh); font-size:0.72rem; color:var(--ink); opacity:0.42; cursor:pointer; text-align:left; transition:opacity 0.15s; white-space:nowrap; }
+.music-opt:hover { opacity:0.85; }
+.music-opt.active { opacity:1; letter-spacing:0.04em; }
+.music-opt.active::before { content:'♪ '; font-family:var(--serif-en); }
+
 @media(max-width:768px){
   .generate-layout { grid-template-columns:1fr; grid-template-rows:auto auto; }
   #canvas-area { padding:1rem; }
@@ -198,6 +210,16 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 </style>
 </head>
 <body>
+
+<!-- 背景音乐 -->
+<audio id="bg-audio" loop preload="none"></audio>
+<div id="music-player">
+  <button id="music-btn" title="背景音乐">♩</button>
+  <div id="music-menu">
+    <button class="music-opt active" data-src="data/Gymnopédie no. 1.mp3">钢琴版</button>
+    <button class="music-opt" data-src="data/Gymnopédie no. 1 (for Harp).mp3">竖琴版</button>
+  </div>
+</div>
 
 <!-- 首页 -->
 <div class="page active" id="page-home">
@@ -461,6 +483,59 @@ function showPage(id){ document.querySelectorAll('.page').forEach(p=>p.classList
 // ── 首页 ──────────────────────────────────
 document.getElementById('btn-enter').addEventListener('click',()=>{ playEnter(); showPage('page-input'); setTimeout(initEmotionGraph,60); });
 document.getElementById('btn-gallery-home').addEventListener('click',()=>{ playClick(); renderGallery(); showPage('page-gallery'); });
+
+// ── 背景音乐 ──────────────────────────────
+(function initMusic(){
+  const audio=document.getElementById('bg-audio');
+  const btn=document.getElementById('music-btn');
+  const player=document.getElementById('music-player');
+  const opts=document.querySelectorAll('.music-opt');
+  let started=false;
+
+  function fadeIn(){
+    audio.volume=0;
+    audio.play().catch(()=>{});
+    let v=0;
+    const t=setInterval(()=>{ v=Math.min(v+0.018,0.32); audio.volume=v; if(v>=0.32) clearInterval(t); },80);
+    btn.classList.add('playing');
+  }
+
+  function startMusic(){
+    if(started) return;
+    started=true;
+    audio.src=document.querySelector('.music-opt.active').dataset.src;
+    fadeIn();
+  }
+
+  // 进入 & 我的归档 都触发播放
+  document.getElementById('btn-enter').addEventListener('click',startMusic,{once:true});
+  document.getElementById('btn-gallery-home').addEventListener('click',startMusic,{once:true});
+
+  // 点击音符：展开/收起菜单
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    player.classList.toggle('open');
+  });
+  document.addEventListener('click',()=>player.classList.remove('open'));
+
+  // 切换版本
+  opts.forEach(opt=>{
+    opt.addEventListener('click',e=>{
+      e.stopPropagation();
+      opts.forEach(o=>o.classList.remove('active'));
+      opt.classList.add('active');
+      if(!started){ player.classList.remove('open'); return; }
+      const prog=audio.duration?audio.currentTime/audio.duration:0;
+      audio.src=opt.dataset.src;
+      audio.load();
+      audio.addEventListener('canplay',()=>{
+        if(audio.duration) audio.currentTime=audio.duration*prog;
+        audio.play().catch(()=>{});
+      },{once:true});
+      player.classList.remove('open');
+    });
+  });
+})();
 
 // ── 首页互动背景（指针跟随流场）──────────
 (function initHomeBg(){
