@@ -1286,10 +1286,14 @@ function initP5(){
     // 增量放置字符：只处理 pendPath 中尚未处理的新增部分
     function placePendLetters(shape){
       const path=shape.pendPath;
-      let i=shape.lpIdx;
+      // 防止积压：跳过超过60帧的落后部分，避免超大字爆发
+      if(shape.lpIdx < path.length - 60) shape.lpIdx = path.length - 60;
+      let i=Math.max(0,shape.lpIdx);
       while(i<path.length){
         const pos=path[i];
-        const ch=textPool[shape.tIdx%textPool.length];
+        // 只取单字符，避免词语导致 minDist 过大造成超大字和直线
+        const raw=textPool[shape.tIdx%textPool.length]||'·';
+        const ch=[...raw][0];
         p.textFont(cnFont); p.textSize(Math.max(FSP_MIN,12));
         const minDist=p.textWidth(ch);
         let d=0, j=i+1;
@@ -1299,21 +1303,22 @@ function initP5(){
           j++;
         }
         if(j>=path.length) break; // 等待更多轨迹点
-        const nxt=path[j];
-        const sz=Math.max(FSP_MIN,Math.min(d*1.2,36));
+        // 用局部切线方向（i→i+1），保证字符贴合曲线
+        const ni=Math.min(i+1,path.length-1);
+        const ang=Math.atan2(path[ni].y-pos.y,path[ni].x-pos.x);
+        const sz=Math.max(FSP_MIN,Math.min(d*1.2,32));
         shape.tIdx++;
         const lc=pal.colors[Math.floor(p.random(pal.colors.length))];
-        shape.letters.push({x:pos.x,y:pos.y,ang:Math.atan2(nxt.y-pos.y,nxt.x-pos.x),ch,sz,col:lc});
+        shape.letters.push({x:pos.x,y:pos.y,ang,ch,sz,col:lc});
         if(shape.letters.length>700) shape.letters.shift();
         i=j;
       }
       shape.lpIdx=i;
-      // 只在已处理足够多时才裁剪，避免 lpIdx 归零导致字符重播
-      const KEEP=30;
-      if(shape.lpIdx>KEEP){
-        const trim=shape.lpIdx-KEEP;
+      // 裁剪缓冲区防止无限增长
+      if(shape.pendPath.length>300){
+        const trim=shape.pendPath.length-300;
         shape.pendPath.splice(0,trim);
-        shape.lpIdx=KEEP;
+        shape.lpIdx=Math.max(0,shape.lpIdx-trim);
       }
     }
     function drawShape(shape){
@@ -1491,7 +1496,7 @@ function initP5(){
         const d=p.dist(bx,by,p.mouseX,p.mouseY);
         const sz=Math.max(8,4+d*0.5+intensity*0.5);
         p.textFont(cnFont); p.textSize(sz);
-        const ch=textPool[bCnt%textPool.length];
+        const ch=[...(textPool[bCnt%textPool.length]||'·')][0];
         const sw=p.textWidth(ch);
         if(d>sw){
           const ang=Math.atan2(p.mouseY-by,p.mouseX-bx);
