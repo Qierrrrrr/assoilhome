@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Noto+Serif+SC:wght@300;400;600&family=Noto+Serif+JP:wght@300;400&family=Noto+Serif+KR:wght@300;400&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <style>
 :root {
   --bg: #f8f7f4;
@@ -82,7 +83,7 @@ html,body { background:var(--bg); color:var(--ink); min-height:100vh; overflow-x
 .body-quip.show { opacity:1; }
 
 /* 强度 */
-.intensity-wrap { width:100%; max-width:380px; margin-bottom:2.5rem; }
+.intensity-wrap { width:100%; max-width:380px; margin-bottom:2.5rem; padding:0 8px; box-sizing:border-box; }
 .intensity-labels { display:flex; justify-content:space-between; font-size:0.67rem; opacity:0.28; margin-bottom:1rem; }
 input[type=range] { -webkit-appearance:none; width:100%; height:1px; background:var(--ink); outline:none; cursor:pointer; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:var(--ink); border-radius:50%; cursor:pointer; transition:transform 0.18s; }
@@ -97,7 +98,8 @@ input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.6); }
 .input-section:last-child { flex:1; border-bottom:none; }
 .section-label { font-size:0.55rem; letter-spacing:0.3em; opacity:0.45; text-transform:uppercase; margin-bottom:0.9rem; }
 .input-right { display:flex; flex-direction:column; overflow:hidden; padding:1.2rem 1.4rem; gap:0.6rem; }
-#emotion-graph { flex:1; min-height:0; display:block; cursor:crosshair; }
+#emotion-graph { flex:1; min-height:0; display:block; cursor:crosshair; touch-action:none; }
+#canvas-wrap canvas { touch-action:none; }
 .graph-hint { font-size:0.65rem; opacity:0.38; letter-spacing:0.06em; text-align:center; padding:0.3rem 0; flex-shrink:0; font-family:var(--serif-zh); }
 .input-footer { padding:0.9rem 1.6rem; border-top:1px solid var(--line); display:flex; justify-content:flex-end; flex-shrink:0; }
 
@@ -179,7 +181,7 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .panel-btn:hover,.panel-btn.active { border-color:var(--ink); background:var(--ink); color:var(--bg); }
 
 /* 风速拉条 */
-.sub-slider-wrap { margin-top:0.8rem; }
+.sub-slider-wrap { margin-top:0.8rem; padding:0 8px 0.5rem; }
 .sub-slider-label { display:flex; justify-content:space-between; font-size:0.62rem; opacity:0.3; margin-bottom:0.5rem; }
 .sub-slider { -webkit-appearance:none; width:100%; height:1px; background:var(--ink); outline:none; cursor:pointer; }
 .sub-slider::-webkit-slider-thumb { -webkit-appearance:none; width:11px; height:11px; background:var(--ink); border-radius:50%; cursor:pointer; }
@@ -204,6 +206,114 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .action-btn.primary { background:var(--ink); color:var(--bg); }
 .action-btn.primary:hover { background:none; color:var(--ink); }
 .panel-watermark { text-align:center; font-size:0.55rem; opacity:0.16; letter-spacing:0.2em; font-family:var(--serif-en); padding:0.4rem; }
+
+/* ── 欢迎浮窗 ── */
+#welcome-overlay {
+  position:fixed; inset:0; z-index:999;
+  background:rgba(10,10,10,0.14);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.5s ease;
+}
+#welcome-overlay.visible { opacity:1; pointer-events:auto; }
+#welcome-overlay.fade-out { opacity:0; pointer-events:none; }
+#welcome-card {
+  display:flex; flex-direction:column; align-items:center;
+  gap:1.8rem; padding:3rem 2.5rem; max-width:400px; width:calc(100vw - 4rem);
+  text-align:center;
+  background:var(--bg);
+  border:1px solid rgba(10,10,10,0.09);
+  border-radius:14px;
+  box-shadow:0 16px 52px rgba(10,10,10,0.18), 0 2px 8px rgba(10,10,10,0.06);
+  transform:translateY(14px);
+  transition:transform 0.5s ease;
+}
+#welcome-overlay.visible #welcome-card { transform:translateY(0); }
+.welcome-logo {
+  font-family:var(--serif-en); font-style:italic;
+  font-size:0.72rem; letter-spacing:0.45em; opacity:0.35;
+}
+.welcome-rule { width:28px; height:1px; background:var(--ink); opacity:0.15; }
+.welcome-body { font-family:var(--serif-zh); font-size:1rem; line-height:2.1; opacity:0.72; }
+.welcome-body p { margin:0; }
+.welcome-body p + p { margin-top:0.5em; }
+.welcome-enter {
+  font-family:var(--serif-en); font-style:italic;
+  font-size:0.6rem; letter-spacing:0.3em; opacity:0.28;
+}
+
+/* ── Hint 遮罩（与欢迎信同款） ── */
+.hint-overlay {
+  position:fixed; inset:0; z-index:998;
+  background:rgba(10,10,10,0.10);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  opacity:0; pointer-events:none;
+  /* transition 交由 GSAP 处理 */
+}
+.hint-overlay.visible { pointer-events:auto; }
+.hint-card {
+  cursor:default;
+  display:flex; flex-direction:column; align-items:flex-start;
+  padding:2.2rem 2.4rem 1.8rem;
+  max-width:400px; width:calc(100vw - 4rem);
+  text-align:left;
+  background:var(--bg);
+  border:1px solid rgba(10,10,10,0.09);
+  border-radius:12px;
+  box-shadow:0 12px 48px rgba(10,10,10,0.14), 0 2px 8px rgba(10,10,10,0.06);
+  position:relative;
+  /* transform/transition 交由 GSAP 处理 */
+}
+.hint-page { display:none; width:100%; }
+.hint-page.active { display:block; }
+.hint-page-title {
+  font-family:var(--serif-zh); font-size:0.68rem;
+  letter-spacing:0.14em; opacity:0.4; margin-bottom:0.55rem;
+}
+.hint-page-rule { width:18px; height:1px; background:var(--ink); opacity:0.12; margin-bottom:0.85rem; }
+.hint-card p { font-family:var(--serif-zh); font-size:0.82rem; line-height:1.95; opacity:0.72; margin:0; }
+.hint-card p + p { margin-top:0.4rem; }
+.hint-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  width:100%; margin-top:1.6rem; padding-top:0.9rem;
+  border-top:1px solid rgba(10,10,10,0.06);
+}
+.hint-dots { display:flex; gap:5px; align-items:center; }
+.hint-dot {
+  width:4px; height:4px; border-radius:50%;
+  background:var(--ink); opacity:0.18; transition:opacity 0.3s;
+}
+.hint-dot.active { opacity:0.55; }
+.hint-next-btn {
+  font-family:var(--serif-en); font-style:italic;
+  font-size:0.62rem; letter-spacing:0.22em; opacity:0.4;
+  color:var(--ink); background:none; border:none;
+  cursor:pointer; padding:0; transition:opacity 0.15s;
+}
+.hint-next-btn:hover { opacity:0.75; }
+.hint-dismiss {
+  position:absolute; top:0.75rem; right:1rem;
+  background:none; border:none; cursor:pointer;
+  font-size:1rem; line-height:1; padding:0;
+  color:var(--ink); opacity:0.22;
+  transition:opacity 0.15s; font-family:var(--serif-en);
+}
+.hint-dismiss:hover { opacity:0.6; }
+
+/* 锚定式 hint（无全屏遮罩，直接 fixed 定位在页面内） */
+.hint-card.hint-anchored {
+  position:fixed;
+  max-width:250px; width:250px;
+  opacity:0; pointer-events:none;
+  /* GSAP 负责 opacity/transform */
+}
+.hint-card.hint-anchored.visible { pointer-events:auto; }
 
 /* 归档页 */
 #page-gallery { background:var(--bg); }
@@ -255,6 +365,45 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 .gallery-item-date { font-size:0.58rem; opacity:0.28; }
 .gallery-empty { flex:1; display:flex; align-items:center; justify-content:center; font-size:0.85rem; opacity:0.28; font-style:italic; flex-direction:column; gap:0.5rem; }
 .gallery-footer { padding:1.4rem 3rem; border-top:1px solid var(--line); display:flex; gap:1.5rem; }
+
+/* ── 视图切换 ── */
+.gallery-view-toggle { display:flex; border:1px solid rgba(10,10,10,0.12); border-radius:3px; overflow:hidden; }
+.gallery-view-btn { background:none; border:none; padding:0.28rem 0.7rem; font-family:var(--serif-zh); font-size:0.62rem; letter-spacing:0.1em; cursor:pointer; color:var(--ink); opacity:0.38; transition:all 0.18s; }
+.gallery-view-btn.active { background:var(--ink); color:var(--bg); opacity:1; }
+
+/* ── 统计视图 ── */
+.stats-wrap { padding:2rem 3rem 2.5rem; display:flex; flex-direction:column; gap:2.6rem; overflow-y:auto; flex:1; }
+.stats-summary { font-family:var(--serif-zh); font-size:0.7rem; opacity:0.3; letter-spacing:0.06em; margin:0; }
+.stats-section { display:flex; flex-direction:column; gap:0.9rem; }
+.stats-section-header { display:flex; align-items:center; gap:0.7rem; }
+.stats-section-title { font-family:var(--serif-zh); font-size:0.55rem; letter-spacing:0.3em; opacity:0.32; }
+.stats-rule { flex:1; height:1px; background:var(--ink); opacity:0.07; }
+
+/* 时间轴 SVG */
+.stats-svg { width:100%; height:auto; color:var(--ink); display:block; }
+.stats-axis-label { font-family:var(--serif-en); font-size:9px; fill:currentColor; opacity:0.28; }
+.tl-dot { cursor:pointer; transition:r 0.15s,opacity 0.15s; }
+.tl-dot:hover { opacity:1 !important; }
+
+/* 图例 */
+.stats-legend { display:flex; flex-wrap:wrap; gap:0.4rem 1.1rem; }
+.stats-legend-item { display:flex; align-items:center; gap:5px; font-family:var(--serif-zh); font-size:0.6rem; opacity:0.48; }
+.stats-legend-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+/* 分布条 */
+.dist-rows { display:flex; flex-direction:column; gap:0.6rem; }
+.dist-row { display:flex; align-items:center; gap:0.7rem; }
+.dist-name { font-family:var(--serif-zh); font-size:0.7rem; opacity:0.55; min-width:3.8rem; text-align:right; flex-shrink:0; }
+.dist-bar-track { flex:1; height:3px; background:var(--ink); opacity:0.08; border-radius:2px; overflow:hidden; }
+.dist-bar { height:100%; border-radius:2px; transform-origin:left; }
+.dist-count { font-family:var(--serif-en); font-size:0.6rem; opacity:0.3; min-width:1.4rem; }
+
+/* 两列并排（情绪 + 身体） */
+.stats-two-col { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
+@media (max-width:520px){ .stats-two-col { grid-template-columns:1fr; } }
+
+/* Tooltip */
+#tl-tooltip { position:fixed; background:var(--bg); border:1px solid rgba(10,10,10,0.1); border-radius:8px; padding:0.55rem 0.8rem; font-family:var(--serif-zh); font-size:0.68rem; line-height:1.7; pointer-events:none; opacity:0; box-shadow:0 6px 24px rgba(10,10,10,0.1); z-index:200; max-width:180px; transition:opacity 0.15s; }
 
 /* 音乐播放器 */
 @keyframes spin-disc { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
@@ -397,7 +546,7 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
       <div id="wander-hint">游走效果 · 最多约 350 字</div>
     </div>
     <div class="gen-panel">
-      <div class="panel-block">
+      <div class="panel-block" id="block-ratio">
         <div class="panel-label">画面比例</div>
         <div class="ratio-btns">
           <button class="ratio-btn active" data-ratio="3:4"><div class="rp" style="width:18px;height:24px;"></div>3 : 4</button>
@@ -452,7 +601,7 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
           </div>
         </div>
       </div>
-      <div class="panel-actions">
+      <div class="panel-actions" id="panel-actions">
         <button class="action-btn" id="btn-dl-img">下载图片</button>
         <button class="action-btn" id="btn-dl-video">下载视频</button>
         <button class="action-btn primary" id="btn-archive">归档查看</button>
@@ -493,8 +642,15 @@ textarea::placeholder { opacity:0.2; font-style:italic; }
 
 <!-- 归档页 -->
 <div class="page" id="page-gallery">
-  <nav class="nav"><div class="logo">ass.ho</div><div class="nav-hint">归档</div></nav>
-  <div id="gallery-content" style="flex:1;display:flex;flex-direction:column;"></div>
+  <nav class="nav">
+    <div class="logo">ass.ho</div>
+    <div class="nav-hint">归档</div>
+    <div class="gallery-view-toggle" id="gallery-view-toggle">
+      <button class="gallery-view-btn active" id="btn-view-grid">图册</button>
+      <button class="gallery-view-btn" id="btn-view-stats">统计</button>
+    </div>
+  </nav>
+  <div id="gallery-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
   <div class="gallery-footer">
     <button class="btn-skip" id="btn-back-gallery">← 返回首页</button>
     <div id="gallery-select-bar">
@@ -609,10 +765,41 @@ function freshState(){ return {bodyZones:[],intensity:5,emotionGroup:null,emotio
 let state=freshState();
 
 // ── 页面切换 ──────────────────────────────
-function showPage(id){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const next=document.getElementById(id);
+  next.classList.add('active');
+  window.scrollTo(0,0);
+  if(window.gsap){
+    gsap.fromTo(next,{opacity:0,y:14},{opacity:1,y:0,duration:0.5,ease:'power3.out',clearProps:'all'});
+  }
+  if(window._onShowPage) window._onShowPage(id);
+}
+
+// ── 欢迎信文字逐行动效 ─────────────────────
+function animateWelcome(){
+  if(!window.gsap) return;
+  const logo=document.querySelector('.welcome-logo');
+  const rule=document.querySelector('.welcome-rule');
+  const ps=[...document.querySelectorAll('#welcome-card .welcome-body p')];
+  const enter=document.querySelector('.welcome-enter');
+  if(!logo) return;
+  gsap.killTweensOf([logo,rule,...ps,enter]);
+  const tl=gsap.timeline({delay:0.15});
+  tl.fromTo(logo,{opacity:0,y:8},{opacity:0.35,y:0,duration:0.55,ease:'power2.out'})
+    .fromTo(rule,{opacity:0,scaleX:0,transformOrigin:'left center'},{opacity:0.15,scaleX:1,duration:0.4,ease:'power2.out'},'-=0.2')
+    .fromTo(ps,{opacity:0,y:10},{opacity:0.72,y:0,duration:0.5,ease:'power2.out',stagger:0.22},'-=0.1')
+    .fromTo(enter,{opacity:0},{opacity:0.28,duration:0.45,ease:'power2.out'},'-=0.1');
+}
 
 // ── 首页 ──────────────────────────────────
-document.getElementById('btn-enter').addEventListener('click',()=>{ playEnter(); showPage('page-input'); setTimeout(initEmotionGraph,60); });
+document.getElementById('btn-enter').addEventListener('click',()=>{
+  playEnter();
+  showPage('page-input');
+  setTimeout(initEmotionGraph,60);
+  const ov=document.getElementById('welcome-overlay');
+  if(ov) requestAnimationFrame(()=>{ ov.classList.add('visible'); animateWelcome(); });
+});
 document.getElementById('btn-gallery-home').addEventListener('click',()=>{ playClick(); renderGallery(); showPage('page-gallery'); });
 
 // ── 背景音乐 ──────────────────────────────
@@ -710,10 +897,11 @@ document.getElementById('btn-gallery-home').addEventListener('click',()=>{ playC
   new ResizeObserver(resize).observe(gc.parentElement);
   resize();
 
-  gc.parentElement.addEventListener('mousemove',e=>{
+  // pointermove 统一处理鼠标、触摸、Apple Pencil
+  gc.parentElement.addEventListener('pointermove',e=>{
     const r=gc.getBoundingClientRect();
     tx=e.clientX-r.left; ty=e.clientY-r.top;
-  });
+  },{passive:true});
 
   function loop(){
     // 仅在首页可见时绘制，省 GPU
@@ -1473,6 +1661,167 @@ function renderGallery(){
 }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ── 统计视图 ────────────────────────────────────────────────
+let _galleryView='grid';
+
+function switchGalleryView(view){
+  _galleryView=view;
+  document.getElementById('btn-view-grid').classList.toggle('active',view==='grid');
+  document.getElementById('btn-view-stats').classList.toggle('active',view==='stats');
+  const content=document.getElementById('gallery-content');
+  const render=()=>{ if(view==='grid') renderGallery(); else renderStats(); };
+  if(window.gsap){
+    gsap.to(content,{opacity:0,duration:0.16,ease:'power2.in',onComplete:()=>{
+      render();
+      gsap.fromTo(content,{opacity:0},{opacity:1,duration:0.28,ease:'power2.out'});
+    }});
+  } else render();
+}
+
+function renderStats(){
+  const content=document.getElementById('gallery-content');
+  let items=[];
+  try{ items=JSON.parse(localStorage.getItem('assoilhome_gallery')||'[]'); }catch(e){}
+  if(items.length===0){
+    content.innerHTML='<div class="gallery-empty"><span>还没有记录可以统计。</span></div>';
+    return;
+  }
+  const sorted=[...items].sort((a,b)=>a.ts-b.ts);
+  const total=items.length;
+  const daySpan=sorted.length>1?Math.round((sorted[sorted.length-1].ts-sorted[0].ts)/86400000)+1:1;
+  const avgInt=(items.reduce((s,i)=>s+(i.intensity||5),0)/total).toFixed(1);
+
+  content.innerHTML=`
+    <div class="stats-wrap">
+      <p class="stats-summary">${total} 条记录 · ${daySpan} 天 · 平均强度 ${avgInt}</p>
+      <div class="stats-section">
+        <div class="stats-section-header"><span class="stats-section-title">时间轴</span><div class="stats-rule"></div></div>
+        ${_buildTimeline(sorted)}
+      </div>
+      <div class="stats-two-col">
+        <div class="stats-section">
+          <div class="stats-section-header"><span class="stats-section-title">情绪分布</span><div class="stats-rule"></div></div>
+          ${_buildEmotionBars(items)}
+        </div>
+        <div class="stats-section">
+          <div class="stats-section-header"><span class="stats-section-title">身体感受</span><div class="stats-rule"></div></div>
+          ${_buildBodyBars(items)}
+        </div>
+      </div>
+    </div>`;
+
+  // 条形动画
+  if(window.gsap){
+    document.querySelectorAll('.dist-bar').forEach(b=>{ gsap.set(b,{scaleX:0}); });
+    gsap.to('.dist-bar',{scaleX:1,duration:0.55,ease:'power3.out',stagger:0.07,delay:0.1});
+  }
+  _initTimelineTooltip();
+}
+
+function _buildTimeline(sorted){
+  if(!sorted.length) return '';
+  const W=600, H=160, PL=32, PR=16, PT=14, PB=32;
+  const pw=W-PL-PR, ph=H-PT-PB;
+  const t0=sorted[0].ts, t1=sorted[sorted.length-1].ts;
+  const tSpan=Math.max(t1-t0,3600000);
+  const mx=ts=>PL+(ts-t0)/tSpan*pw;
+  const my=iv=>PT+ph-(((iv||5)-1)/9)*ph;
+
+  // 基准线
+  const guides=[1,5,10].map(v=>{
+    const y=my(v);
+    return `<line x1="${PL}" x2="${W-PR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.05" stroke-dasharray="2 5"/>
+    <text x="${PL-5}" y="${y+3.5}" text-anchor="end" class="stats-axis-label">${v}</text>`;
+  }).join('');
+
+  // 日期标注（最多3个：首、中、尾）
+  const dateTicks=sorted.length===1?[sorted[0]]:
+    sorted.length===2?[sorted[0],sorted[sorted.length-1]]:
+    [sorted[0],sorted[Math.floor((sorted.length-1)/2)],sorted[sorted.length-1]];
+  const dateLabels=dateTicks.map(item=>{
+    const x=mx(item.ts);
+    const d=item.date||'';
+    const label=d.slice(5); // MM-DD
+    return `<text x="${x}" y="${H-PB+16}" text-anchor="middle" class="stats-axis-label">${label}</text>`;
+  }).join('');
+
+  // 散点
+  const dots=sorted.map((item,i)=>{
+    const x=mx(item.ts).toFixed(1), y=my(item.intensity||5).toFixed(1);
+    const col=GCOL[item.emotion]||'#888';
+    const emo=escHtml(GROUP_NAMES[item.emotion]||'');
+    const ttl=escHtml(item.title||'未命名');
+    return `<circle class="tl-dot" cx="${x}" cy="${y}" r="5" fill="${col}" fill-opacity="0.78"
+      data-title="${ttl}" data-date="${item.date||''}" data-emo="${emo}" data-int="${item.intensity||5}"/>`;
+  }).join('');
+
+  // 图例
+  const legend=Object.entries(GCOL).map(([k,c])=>
+    `<span class="stats-legend-item"><span class="stats-legend-dot" style="background:${c}"></span>${GROUP_NAMES[k].split('与')[0]}</span>`
+  ).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="stats-svg" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${PL}" x2="${PL}" y1="${PT}" y2="${H-PB}" stroke="currentColor" stroke-opacity="0.1"/>
+    <line x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}" stroke="currentColor" stroke-opacity="0.1"/>
+    ${guides}${dateLabels}${dots}
+  </svg>
+  <div class="stats-legend">${legend}</div>`;
+}
+
+function _buildEmotionBars(items){
+  const cnt={};
+  items.forEach(it=>{ if(it.emotion) cnt[it.emotion]=(cnt[it.emotion]||0)+1; });
+  const max=Math.max(1,...Object.values(cnt));
+  const rows=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
+    <div class="dist-row">
+      <div class="dist-name">${GROUP_NAMES[k].split('与')[0]}</div>
+      <div class="dist-bar-track"><div class="dist-bar" style="width:${(n/max*100).toFixed(1)}%;background:${GCOL[k]};opacity:0.65"></div></div>
+      <div class="dist-count">${n}</div>
+    </div>`).join('');
+  return `<div class="dist-rows">${rows}</div>`;
+}
+
+function _buildBodyBars(items){
+  const BSHORT={head:'头脑海',throat:'喉咙',chest:'胸口',stomach:'胃部',hands:'双手',whole:'全身'};
+  const cnt={};
+  items.forEach(it=>(it.bodyZones||[]).forEach(z=>{ cnt[z]=(cnt[z]||0)+1; }));
+  if(!Object.keys(cnt).length) return '<div class="dist-rows" style="opacity:0.28;font-size:0.7rem;font-family:var(--serif-zh)">暂无数据</div>';
+  const max=Math.max(1,...Object.values(cnt));
+  const rows=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
+    <div class="dist-row">
+      <div class="dist-name">${BSHORT[k]||k}</div>
+      <div class="dist-bar-track"><div class="dist-bar" style="width:${(n/max*100).toFixed(1)}%;background:var(--ink);opacity:0.4"></div></div>
+      <div class="dist-count">${n}</div>
+    </div>`).join('');
+  return `<div class="dist-rows">${rows}</div>`;
+}
+
+function _initTimelineTooltip(){
+  const tip=document.getElementById('tl-tooltip');
+  if(!tip) return;
+  document.querySelectorAll('.tl-dot').forEach(dot=>{
+    dot.addEventListener('mouseenter',e=>{
+      tip.innerHTML=`<div style="opacity:0.45;font-size:0.58rem;margin-bottom:0.1rem">${dot.dataset.date}</div>
+        <div style="font-weight:500">${dot.dataset.title}</div>
+        <div style="opacity:0.5;font-size:0.62rem">${dot.dataset.emo} · 强度 ${dot.dataset.int}</div>`;
+      tip.style.opacity='1';
+      dot.setAttribute('r','7');
+    });
+    dot.addEventListener('mousemove',e=>{
+      const x=e.clientX+14, y=e.clientY-10;
+      tip.style.left=Math.min(x,window.innerWidth-200)+'px';
+      tip.style.top=y+'px';
+    });
+    dot.addEventListener('mouseleave',()=>{
+      tip.style.opacity='0';
+      dot.setAttribute('r','5');
+    });
+  });
+}
+
+document.getElementById('btn-view-grid').addEventListener('click',()=>{ if(_galleryView!=='grid') switchGalleryView('grid'); });
+document.getElementById('btn-view-stats').addEventListener('click',()=>{ if(_galleryView!=='stats') switchGalleryView('stats'); });
+
 document.getElementById('btn-back-gallery').addEventListener('click',()=>{ playClick(); _selectMode=false; showPage('page-home'); });
 document.getElementById('btn-clear-gallery').addEventListener('click',()=>{
   if(confirm('确定清空所有归档？')){ localStorage.removeItem('assoilhome_gallery'); renderGallery(); }
@@ -1862,7 +2211,8 @@ function initP5(){
     function drawBrush(){
       if(p.mouseIsPressed&&p.mouseButton===p.LEFT){
         const d=p.dist(bx,by,p.mouseX,p.mouseY);
-        const sz=Math.max(8,4+d*0.5+intensity*0.5);
+        const pressure=p._getPressure?p._getPressure():1;
+        const sz=Math.max(8,(4+d*0.5+intensity*0.5)*pressure);
         p.textFont(cnFont); p.textSize(sz);
         const ch=[...(textPool[bCnt%textPool.length]||'·')][0];
         const sw=p.textWidth(ch);
@@ -2007,6 +2357,17 @@ function initP5(){
           });
         } else p.loop();
       } else if(state.effect==='wander') buildWanderers();
+
+      // ── Pointer / Touch / Apple Pencil ──
+      const el=cnv.elt;
+      el.style.touchAction='none'; // 阻止浏览器滚动/缩放
+      // 记录 Apple Pencil 压感，用于画笔字号调节
+      let _pressure=1;
+      el.addEventListener('pointermove',e=>{
+        if(e.pointerType==='pen') _pressure=Math.max(0.15,e.pressure);
+      },{passive:true});
+      el.addEventListener('pointerleave',()=>{ _pressure=1; },{passive:true});
+      p._getPressure=()=>_pressure;
     };
 
     // ━━━━━━ Mouse ━━━━━━
@@ -2034,6 +2395,11 @@ function initP5(){
         pendShapes=[]; pendNewShape=null;
       }
     };
+    // ── Touch / Apple Pencil 代理 ──
+    // p5 把 touches[0] 映射到 mouseX/mouseY，touch handlers 只需防止滚动并调用 mouse 逻辑
+    p.touchStarted=()=>{ p.mousePressed(); return false; };
+    p.touchMoved=()=>{ p.mouseDragged(); return false; };
+    p.touchEnded=()=>{ p.mouseReleased(); return false; };
 
     // ━━━━━━ Draw ━━━━━━
     p.draw=()=>{
@@ -2090,6 +2456,313 @@ function initP5(){
 
   window._p5sketch=new p5(sketch);
 }
+
+// ── 欢迎浮窗 + Hint 卡片（HTML 在 script 之后，需等 DOM 加载完毕再绑定）──
+document.addEventListener('DOMContentLoaded',function(){
+
+  const HINT_MAP={
+    // hint-input 由欢迎信关闭后手动触发，不走 _onShowPage
+    'page-write':'hint-write',
+    'page-generate':'hint-generate'
+  };
+  let _activeHint=null;
+
+  // ── 定位锚定式 hint 卡片 ──
+  function calcAnchoredPos(cardEl, activePage){
+    const anchorId=activePage?.dataset.anchor||cardEl.dataset.anchor;
+    const side=activePage?.dataset.side||cardEl.dataset.side||'inside';
+    const anchorEl=anchorId?document.getElementById(anchorId):null;
+    if(!anchorEl) return null;
+    const r=anchorEl.getBoundingClientRect();
+    if(side==='inside'){
+      return {top:r.top+16, left:r.left+16};
+    } else {
+      const genPanel=document.querySelector('.gen-panel');
+      const panelLeft=genPanel?genPanel.getBoundingClientRect().left:window.innerWidth*0.6;
+      const left=Math.max(8, panelLeft-250-16);
+      return {top:Math.max(60,r.top), left};
+    }
+  }
+  function repositionAnchoredHint(cardEl, activePage){
+    const pos=calcAnchoredPos(cardEl, activePage);
+    if(!pos) return;
+    cardEl.style.top=pos.top+'px';
+    cardEl.style.left=pos.left+'px';
+    cardEl.style.right='auto';
+  }
+
+  function dismissHint(el){
+    if(!el) return;
+    const finish=()=>{
+      el.classList.remove('visible');
+      _activeHint=null;
+      if(window.gsap) gsap.set(el,{clearProps:'all'});
+    };
+    if(!window.gsap){ finish(); return; }
+    gsap.killTweensOf(el);
+    if(el.classList.contains('hint-overlay')){
+      const card=el.querySelector('.hint-card');
+      gsap.killTweensOf(card);
+      gsap.to(card,{y:10,scale:0.96,duration:0.22,ease:'power2.in',onComplete:finish});
+      gsap.to(el,{opacity:0,duration:0.22,ease:'power2.in'});
+    } else {
+      gsap.to(el,{opacity:0,y:8,scale:0.96,duration:0.2,ease:'power2.in',onComplete:finish});
+    }
+  }
+
+  function showHint(hintId){
+    const el=document.getElementById(hintId);
+    if(!el) return;
+    if(_activeHint&&_activeHint!==el) dismissHint(_activeHint);
+    _activeHint=el;
+    if(el._resetPages) el._resetPages();
+    if(el.classList.contains('hint-anchored')){
+      repositionAnchoredHint(el,el.querySelector('.hint-page.active'));
+    }
+    el.classList.add('visible');
+    if(!window.gsap) return;
+    gsap.killTweensOf(el);
+    if(el.classList.contains('hint-overlay')){
+      const card=el.querySelector('.hint-card');
+      gsap.killTweensOf(card);
+      gsap.fromTo(el,{opacity:0},{opacity:1,duration:0.4,ease:'power2.out'});
+      gsap.fromTo(card,{y:16,scale:0.95},{y:0,scale:1,duration:0.55,ease:'back.out(1.6)'});
+    } else {
+      gsap.fromTo(el,{opacity:0,y:14,scale:0.95},{opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.6)'});
+    }
+  }
+
+  // ── 分页逻辑，同时支持 .hint-overlay 和 .hint-anchored ──
+  document.querySelectorAll('.hint-overlay, .hint-card.hint-anchored').forEach(el=>{
+    // 全屏遮罩：点背景关闭
+    if(el.classList.contains('hint-overlay')){
+      el.addEventListener('click',()=>{ dismissHint(el); });
+      el.querySelector('.hint-card').addEventListener('click',e=>{ e.stopPropagation(); });
+    }
+    // × 按钮
+    el.querySelector('.hint-dismiss').addEventListener('click',e=>{
+      e.stopPropagation(); dismissHint(el);
+    });
+
+    const pages=Array.from(el.querySelectorAll('.hint-page'));
+    const dotsEl=el.querySelector('.hint-dots');
+    const nextBtn=el.querySelector('.hint-next-btn');
+    if(!pages.length||!nextBtn) return;
+
+    pages.forEach((_,i)=>{
+      const d=document.createElement('span');
+      d.className='hint-dot'+(i===0?' active':'');
+      dotsEl.appendChild(d);
+    });
+
+    let cur=0;
+    function syncUI(){
+      pages.forEach((p,i)=>p.classList.toggle('active',i===cur));
+      dotsEl.querySelectorAll('.hint-dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
+      nextBtn.textContent=cur===pages.length-1?'好了':'下一步 →';
+      if(el.classList.contains('hint-anchored')&&el.classList.contains('visible')){
+        repositionAnchoredHint(el, pages[cur]);
+      }
+    }
+    function animatePage(next, prev){
+      dotsEl.querySelectorAll('.hint-dot').forEach((d,i)=>d.classList.toggle('active',i===next));
+      nextBtn.textContent=next===pages.length-1?'好了':'下一步 →';
+      const nextPage=pages[next];
+      if(!window.gsap||prev==null){ pages.forEach((p,i)=>p.classList.toggle('active',i===next)); return; }
+      const prevPage=pages[prev];
+      const card=el.classList.contains('hint-anchored')?el:el.querySelector('.hint-card');
+      gsap.killTweensOf(prevPage); gsap.killTweensOf(nextPage); gsap.killTweensOf(el); gsap.killTweensOf(card);
+      gsap.set(card,{clearProps:'height,overflow'});
+      const fromH=card.offsetHeight;
+      // 提前测量目标高度（临时切换，不触发渲染）
+      prevPage.classList.remove('active');
+      nextPage.classList.add('active');
+      const toH=card.scrollHeight;
+      nextPage.classList.remove('active');
+      prevPage.classList.add('active');
+      // 锁高度，与旧页淡出同时开始高度过渡，消除空档
+      gsap.set(card,{height:fromH,overflow:'hidden'});
+      gsap.to(card,{height:toH,duration:0.38,ease:'power3.out',onComplete:()=>{
+        gsap.set(card,{clearProps:'height,overflow'});
+      }});
+      gsap.to(prevPage,{opacity:0,y:-4,duration:0.15,ease:'power2.in',onComplete:()=>{
+        prevPage.classList.remove('active');
+        gsap.set(prevPage,{clearProps:'all'});
+        nextPage.classList.add('active');
+        if(el.classList.contains('hint-anchored')&&el.classList.contains('visible')){
+          const pos=calcAnchoredPos(el,nextPage);
+          if(pos) gsap.to(el,{top:pos.top+'px',left:pos.left+'px',duration:0.35,ease:'power3.out'});
+        }
+        // 新页纯淡入，无 y 偏移——让内容出现在它本来的位置，不产生空档
+        gsap.fromTo(nextPage,{opacity:0},{opacity:1,duration:0.25,ease:'power2.out',clearProps:'all'});
+      }});
+    }
+    syncUI();
+
+    nextBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(cur<pages.length-1){ const prev=cur; cur++; animatePage(cur,prev); }
+      else dismissHint(el);
+    });
+
+    el._resetPages=()=>{ cur=0; syncUI(); };
+  });
+
+  // ── 欢迎浮窗：关闭后再弹 hint-input ──
+  const ov=document.getElementById('welcome-overlay');
+  if(ov){
+    ov.addEventListener('click',()=>{
+      ov.classList.remove('visible');
+      ov.addEventListener('transitionend',()=>{ showHint('hint-input'); },{once:true});
+    });
+  }
+
+  window._onShowPage=function(id){
+    const hintId=HINT_MAP[id];
+    if(!hintId){ if(_activeHint) dismissHint(_activeHint); return; }
+    showHint(hintId);
+  };
+
+  // ── 按压反馈（Emil Kowalski 风格）──
+  function addPressEffect(els, downScale, spring=2.2){
+    (typeof els==='string'?Array.from(document.querySelectorAll(els)):[els]).forEach(el=>{
+      el.addEventListener('mousedown',()=>{
+        if(!window.gsap) return;
+        gsap.to(el,{scale:downScale,duration:0.11,ease:'power2.out',overwrite:'auto'});
+      });
+      const up=()=>{
+        if(!window.gsap) return;
+        gsap.to(el,{scale:1,duration:0.45,ease:'back.out('+spring+')',overwrite:'auto'});
+      };
+      el.addEventListener('mouseup',up);
+      el.addEventListener('mouseleave',up);
+    });
+  }
+  // A — 大面板按钮
+  addPressEffect('.btn-primary',   0.96, 2.0);
+  addPressEffect('.btn-next',      0.96, 2.0);
+  addPressEffect('.btn-back',      0.96, 2.0);
+  addPressEffect('.action-btn',    0.96, 2.0);
+  addPressEffect('#title-skip',    0.96, 2.0);
+  addPressEffect('#title-confirm', 0.96, 2.0);
+  // B — 选项切换按钮
+  addPressEffect('.body-zone',          0.93, 2.5);
+  addPressEffect('.ratio-btn',          0.93, 2.5);
+  addPressEffect('.canvas-bg-btn',      0.93, 2.5);
+  addPressEffect('.panel-btn',          0.93, 2.5);
+  // C — 小图标 / 折叠开关
+  addPressEffect('#music-btn',          0.88, 3.0);
+  addPressEffect('.music-opt',          0.90, 2.8);
+  addPressEffect('.panel-label-toggle', 0.92, 2.8);
+  addPressEffect('.trivia-arrow',       0.88, 3.0);
+  addPressEffect('#lightbox-close',     0.88, 3.0);
+  addPressEffect('.hint-dismiss',       0.88, 3.0);
+  addPressEffect('.hint-next-btn',      0.90, 2.5);
+  // D — 大面积卡片（.gallery-item 动态生成，用委托）
+  addPressEffect('.palette-card', 0.98, 1.8);
+  let _pressedGallery=null;
+  document.addEventListener('mousedown',e=>{
+    const it=e.target.closest('.gallery-item');
+    if(it&&window.gsap){ _pressedGallery=it; gsap.to(it,{scale:0.98,duration:0.11,ease:'power2.out',overwrite:'auto'}); }
+  });
+  document.addEventListener('mouseup',()=>{
+    if(_pressedGallery&&window.gsap){ gsap.to(_pressedGallery,{scale:1,duration:0.45,ease:'back.out(1.8)',overwrite:'auto'}); _pressedGallery=null; }
+  });
+  // E — 文字链接式
+  addPressEffect('.welcome-enter',   0.94, 2.0);
+  addPressEffect('.btn-skip',        0.94, 2.0);
+  addPressEffect('.gallery-view-btn',0.93, 2.5);
+
+});
 </script>
+
+<div id="welcome-overlay">
+  <div id="welcome-card">
+    <div class="welcome-logo">ASSOILHOME</div>
+    <div class="welcome-rule"></div>
+    <div class="welcome-body">
+      <p>欢迎来到 Assoil Home。</p>
+      <p>这里是一个安静的地方，<br>专门用来记录你此刻的感受。</p>
+      <p>没有评分，没有对错，<br>只需要带着你现在的心情进来就好。</p>
+    </div>
+    <div class="welcome-enter">· 点击进入 ·</div>
+  </div>
+</div>
+
+<div id="tl-tooltip"></div>
+
+<div class="hint-card hint-anchored" id="hint-input" data-anchor="emotion-graph" data-side="inside">
+  <button class="hint-dismiss">×</button>
+  <div class="hint-pages">
+    <div class="hint-page active">
+      <div class="hint-page-title">情绪图谱</div>
+      <div class="hint-page-rule"></div>
+      <p>图谱里有七类情绪，以节点的形式分布在画面里。点击选中，再点取消；按住可以拖动，把它们排成你想要的样子。</p>
+    </div>
+    <div class="hint-page">
+      <div class="hint-page-title">身体位置</div>
+      <div class="hint-page-rule"></div>
+      <p>情绪总是住在某个地方。选择你此刻感受到它的位置，可以不止一处。如果选择「全身」，则不能选择别的身体部位。</p>
+    </div>
+    <div class="hint-page">
+      <div class="hint-page-title">强度</div>
+      <div class="hint-page-rule"></div>
+      <p>用滑块调节这次情绪的分量。</p>
+    </div>
+  </div>
+  <div class="hint-nav">
+    <div class="hint-dots"></div>
+    <button class="hint-next-btn">下一步 →</button>
+  </div>
+</div>
+
+<div class="hint-overlay" id="hint-write">
+  <div class="hint-card">
+    <button class="hint-dismiss">×</button>
+    <div class="hint-pages">
+      <div class="hint-page active">
+        <p>写点心里想说的，<br>或粘贴一段歌词，<br>或输入你的文学大作。<br>你写在这里的文字会成为后面画布的笔触。</p>
+      </div>
+      <div class="hint-page">
+        <p>字数没有限制，<br>之后还能编辑。</p>
+      </div>
+    </div>
+    <div class="hint-nav">
+      <div class="hint-dots"></div>
+      <button class="hint-next-btn">下一步 →</button>
+    </div>
+  </div>
+</div>
+
+<div class="hint-card hint-anchored" id="hint-generate">
+  <button class="hint-dismiss">×</button>
+  <div class="hint-pages">
+    <div class="hint-page active" data-anchor="block-ratio" data-side="left-of">
+      <div class="hint-page-title">画布</div>
+      <div class="hint-page-rule"></div>
+      <p>点击或拖动，文字就会以你选择的效果运动起来。不同的落点和路径会产生不一样的结果。</p>
+    </div>
+    <div class="hint-page" data-anchor="block-effect" data-side="left-of">
+      <div class="hint-page-title">效果</div>
+      <div class="hint-page-rule"></div>
+      <p>右侧面板可以切换三种生成效果。每种效果下方有各自的参数，可以调整出完全不同的质感。</p>
+    </div>
+    <div class="hint-page" data-anchor="block-palette" data-side="left-of">
+      <div class="hint-page-title">颜色与边框</div>
+      <div class="hint-page-rule"></div>
+      <p>「色调」可以更换整体配色方案，「边框」选项在面板最下方。</p>
+    </div>
+    <div class="hint-page" data-anchor="panel-actions" data-side="left-of">
+      <div class="hint-page-title">归档</div>
+      <div class="hint-page-rule"></div>
+      <p>完成之后，点击「归档查看」。这张画会被保存，可以在「我的归档」里随时回看。</p>
+    </div>
+  </div>
+  <div class="hint-nav">
+    <div class="hint-dots"></div>
+    <button class="hint-next-btn">下一步 →</button>
+  </div>
+</div>
+
 </body>
 </html>
