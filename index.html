@@ -1862,10 +1862,26 @@ function renderStats(){
       </div>
     </div>`;
 
-  // 条形动画
   if(window.gsap){
-    document.querySelectorAll('.dist-bar').forEach(b=>{ gsap.set(b,{scaleX:0}); });
-    gsap.to('.dist-bar',{scaleX:1,duration:0.55,ease:'power3.out',stagger:0.07,delay:0.1});
+    // 1. 顶部数字计数
+    const summaryEl=content.querySelector('.stats-summary');
+    if(summaryEl){
+      const obj={val:0};
+      gsap.to(obj,{val:total,duration:0.8,ease:'power2.out',onUpdate:()=>{
+        summaryEl.textContent=`${Math.round(obj.val)} 条记录 · ${daySpan} 天 · 平均强度 ${avgInt}`;
+      }});
+    }
+    // 2. 时间轴圆点 stagger 弹入（SVG 元素用 attr r 动画更可靠）
+    const dots=Array.from(content.querySelectorAll('.tl-dot'));
+    dots.forEach(d=>{ d._origR=d.getAttribute('r'); d.setAttribute('r','0'); });
+    gsap.to(dots.map(d=>({el:d})),{duration:0,delay:0}); // flush
+    dots.forEach((d,i)=>{
+      gsap.to(d,{attr:{r:d._origR},duration:0.35,ease:'back.out(2.2)',delay:0.15+i*(0.45/Math.max(dots.length,1))});
+    });
+    // 3. 条形图从左伸展到目标宽度
+    document.querySelectorAll('.dist-bar').forEach((b,i)=>{
+      gsap.to(b,{width:(b.dataset.w||'0')+'%',duration:0.55,ease:'power3.out',delay:0.2+i*0.06});
+    });
   }
   _initTimelineTooltip();
 }
@@ -1927,7 +1943,7 @@ function _buildEmotionBars(items){
   const rows=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
     <div class="dist-row">
       <div class="dist-name">${GROUP_NAMES[k].split('与')[0]}</div>
-      <div class="dist-bar-track"><div class="dist-bar" style="width:${(n/max*100).toFixed(1)}%;background:${GCOL[k]};opacity:0.65"></div></div>
+      <div class="dist-bar-track"><div class="dist-bar" data-w="${(n/max*100).toFixed(1)}" style="width:0;background:${GCOL[k]};opacity:0.65"></div></div>
       <div class="dist-count">${n}</div>
     </div>`).join('');
   return `<div class="dist-rows">${rows}</div>`;
@@ -1942,7 +1958,7 @@ function _buildBodyBars(items){
   const rows=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
     <div class="dist-row">
       <div class="dist-name">${BSHORT[k]||k}</div>
-      <div class="dist-bar-track"><div class="dist-bar" style="width:${(n/max*100).toFixed(1)}%;background:var(--ink);opacity:0.4"></div></div>
+      <div class="dist-bar-track"><div class="dist-bar" data-w="${(n/max*100).toFixed(1)}" style="width:0;background:var(--ink);opacity:0.4"></div></div>
       <div class="dist-count">${n}</div>
     </div>`).join('');
   return `<div class="dist-rows">${rows}</div>`;
